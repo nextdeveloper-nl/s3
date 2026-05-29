@@ -1,0 +1,53 @@
+{
+  "name": "nextdeveloper/s3",
+  "description": "NextDeveloper s3 Package",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Harun Barış Bulut",
+      "email": "baris.bulut@plusclouds.com"
+    }
+  ],
+  "homepage": "https://github.com/nextdeveloper-nl/s3",
+  "support": {
+    "issues": "https://github.com/nextdeveloper-nl/s3/issues",
+    "source": "https://github.com/nextdeveloper-nl/s3"
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "git@github.com:nextdeveloper-nl/s3.git"
+    }
+  ],
+  "require": {
+    "php": ">=8.2.0",
+    "league/fractal": "*",
+    "monolog/monolog": "*",
+    "basis-company/nats": "*"
+  },
+  "require-dev": {
+    "illuminate/support": ">=8.0",
+    "illuminate/database": ">=8.0",
+    "illuminate/validation": ">=8.0",
+    "guzzlehttp/guzzle": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "NextDeveloper\\S3\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "NextDeveloper\\Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "NextDeveloper\\S3\\S3ServiceProvider"
+      ]
+    }
+  },
+  "suggest": {}
+}
