@@ -136,6 +136,7 @@ class WormCommitmentsService extends AbstractWormCommitmentsService
         );
 
         AuditLogsService::log('worm.create', UserHelper::me()->uuid ?? 'system', [
+            'iam_account_id'       => $model->iam_account_id,
             's3_account_id'        => $model->s3_account_id,
             's3_bucket_id'         => $model->s3_bucket_id,
             's3_worm_commitment_id' => $model->id,
@@ -183,6 +184,7 @@ class WormCommitmentsService extends AbstractWormCommitmentsService
         }
 
         AuditLogsService::log('worm.cancel', UserHelper::me()->uuid ?? 'system', [
+            'iam_account_id'        => $model->iam_account_id,
             's3_account_id'         => $model->s3_account_id,
             's3_worm_commitment_id' => $model->id,
             'refund'                => $refund,
@@ -218,6 +220,7 @@ class WormCommitmentsService extends AbstractWormCommitmentsService
                 $commitment->update(['status' => 'purged', 'purged_at' => now()]);
 
                 AuditLogsService::log('worm.purge', 'system', [
+                    'iam_account_id'        => $commitment->iam_account_id,
                     's3_account_id'         => $commitment->s3_account_id,
                     's3_worm_commitment_id' => $commitment->id,
                 ]);
