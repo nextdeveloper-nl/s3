@@ -2,14 +2,17 @@
 
 namespace NextDeveloper\S3\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use NextDeveloper\Events\Services\Events;
 use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\AccessKeys;
 use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
+use NextDeveloper\S3\Helpers\WormHelper;
 use NextDeveloper\S3\Services\AuditLogsService;
 use NextDeveloper\S3\Services\BandwidthMonthliesService;
+use NextDeveloper\S3\Services\DepositLedgersService;
 use NextDeveloper\S3\Services\S3AgentCommandService;
 use NextDeveloper\S3\Services\WormCommitmentsService;
 
@@ -200,7 +203,7 @@ class S3AgentService
         }
 
         foreach ($traffic as $delta) {
-            $bucketName = $delta['bucket_name'] ?? null;
+            $bucketName = $delta['bucket'] ?? null;
             $bytesIn    = (int) ($delta['bytes_in']  ?? 0);
             $bytesOut   = (int) ($delta['bytes_out'] ?? 0);
 
@@ -393,6 +396,7 @@ class S3AgentService
             }
 
             // Resolve active WORM commitment when the bucket has object lock enabled.
+            $commitment   = null;
             $commitmentId = null;
             if (!empty($bucket->object_lock_enabled)) {
                 $commitment   = WormCommitmentsService::getActiveForBucket($bucket->id);
@@ -401,7 +405,7 @@ class S3AgentService
 
             UserHelper::runAsAdmin(function () use (
                 $action, $accessKeyId, $bucket, $server, $accessKey,
-                $commitmentId, $performedAt, $objectKey, $sizeBytes, $retainUntil, $clientIp
+                $commitment, $commitmentId, $performedAt, $objectKey, $sizeBytes, $retainUntil, $clientIp
             ) {
                 AuditLogsService::log(
                     'object.' . strtolower($action),
@@ -421,6 +425,27 @@ class S3AgentService
                         'client_ip'             => $clientIp,
                     ]
                 );
+
+                // Charge incremental WORM deposit for every PUT: cost of storing this
+                // file for the remaining lock period of the active commitment.
+                if ($commitment && $action === 'PUT' && $sizeBytes > 0) {
+                    $daysRemaining = max(1, (int) Carbon::now()->diffInDays(
+                        Carbon::parse($commitment->locks_until), false
+                    ));
+                    $price   = (float) ($commitment->price_per_gb_mo
+                        ?? config('s3.worm.price_per_gb_mo', 0.023));
+                    $deposit = WormHelper::calculateDeposit($sizeBytes, $price, $daysRemaining);
+
+                    if ($deposit > 0) {
+                        DepositLedgersService::deposit(
+                            $commitment->s3_account_id,
+                            $commitment->id,
+                            $deposit,
+                            $daysRemaining,
+                            $commitment->iam_account_id ?: null
+                        );
+                    }
+                }
             });
         }
 

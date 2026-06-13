@@ -83,6 +83,7 @@ class BucketsService extends AbstractBucketsService
                     'owner_tenant_id'  => $ownerUuid,
                     'object_lock_mode' => $model->object_lock_mode ?? 'COMPLIANCE',
                     'retention_days'   => (int) ($model->object_lock_days ?? 1),
+                    'audit_enabled'    => (bool) ($model->is_object_audit_enabled ?? false),
                 ]);
 
                 // Record the retention commitment in the platform ledger.
@@ -134,6 +135,7 @@ class BucketsService extends AbstractBucketsService
                     'owner_tenant_id'  => $ownerUuid,
                     'object_lock_mode' => $model->object_lock_mode,
                     'retention_days'   => (int) ($model->object_lock_days ?? 1),
+                    'audit_enabled'    => (bool) ($model->is_object_audit_enabled ?? false),
                 ]);
 
                 // Supersede old commitment and write a new one if retention policy changed.
