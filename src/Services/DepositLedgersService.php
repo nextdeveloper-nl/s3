@@ -38,13 +38,16 @@ class DepositLedgersService extends AbstractDepositLedgersService
 
     /**
      * Record an upfront deposit for a WORM commitment.
+     *
+     * Pass $iamAccountId explicitly when calling from a background/admin context
+     * where UserHelper::currentAccount() would return the wrong account.
      */
-    public static function deposit(int $s3AccountId, int $s3WormCommitmentId, float $amount, int $retentionDays): void
+    public static function deposit(int $s3AccountId, int $s3WormCommitmentId, float $amount, int $retentionDays, ?int $iamAccountId = null): void
     {
         \NextDeveloper\S3\Database\Models\DepositLedgers::create([
             's3_account_id'         => $s3AccountId,
             's3_worm_commitment_id' => $s3WormCommitmentId,
-            'iam_account_id'        => \NextDeveloper\IAM\Helpers\UserHelper::currentAccount()->id,
+            'iam_account_id'        => $iamAccountId ?? \NextDeveloper\IAM\Helpers\UserHelper::currentAccount()->id,
             'type'                  => 'deposit',
             'amount'                => $amount,
             'days_remaining'        => $retentionDays,
@@ -57,12 +60,12 @@ class DepositLedgersService extends AbstractDepositLedgersService
     /**
      * Record a pro-rata refund when a GOVERNANCE commitment is cancelled.
      */
-    public static function refund(int $s3AccountId, int $s3WormCommitmentId, float $amount, int $daysRemaining, int $daysTotal, string $reason = ''): void
+    public static function refund(int $s3AccountId, int $s3WormCommitmentId, float $amount, int $daysRemaining, int $daysTotal, string $reason = '', ?int $iamAccountId = null): void
     {
         \NextDeveloper\S3\Database\Models\DepositLedgers::create([
             's3_account_id'         => $s3AccountId,
             's3_worm_commitment_id' => $s3WormCommitmentId,
-            'iam_account_id'        => \NextDeveloper\IAM\Helpers\UserHelper::currentAccount()->id,
+            'iam_account_id'        => $iamAccountId ?? \NextDeveloper\IAM\Helpers\UserHelper::currentAccount()->id,
             'type'                  => 'refund',
             'amount'                => $amount,
             'days_remaining'        => $daysRemaining,
@@ -76,12 +79,12 @@ class DepositLedgersService extends AbstractDepositLedgersService
     /**
      * Record a forfeiture (e.g. COMPLIANCE commitment that cannot be refunded).
      */
-    public static function forfeiture(int $s3AccountId, int $s3WormCommitmentId, float $amount, string $reason = ''): void
+    public static function forfeiture(int $s3AccountId, int $s3WormCommitmentId, float $amount, string $reason = '', ?int $iamAccountId = null): void
     {
         \NextDeveloper\S3\Database\Models\DepositLedgers::create([
             's3_account_id'         => $s3AccountId,
             's3_worm_commitment_id' => $s3WormCommitmentId,
-            'iam_account_id'        => \NextDeveloper\IAM\Helpers\UserHelper::currentAccount()->id,
+            'iam_account_id'        => $iamAccountId ?? \NextDeveloper\IAM\Helpers\UserHelper::currentAccount()->id,
             'type'                  => 'forfeiture',
             'amount'                => $amount,
             'days_remaining'        => 0,

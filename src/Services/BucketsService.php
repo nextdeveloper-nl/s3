@@ -2,6 +2,7 @@
 
 namespace NextDeveloper\S3\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\S3\Database\Models\Accounts;
@@ -9,6 +10,7 @@ use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Services\AbstractServices\AbstractBucketsService;
 use NextDeveloper\S3\Services\S3AgentCommandService;
+use NextDeveloper\S3\Services\WormCommitmentsService;
 
 /**
  * This class is responsible from managing the data for Buckets
@@ -70,14 +72,25 @@ class BucketsService extends AbstractBucketsService
             // WORM buckets need a dedicated agent command so SeaweedFS enables object lock at creation.
             // A regular bucket cannot be converted to WORM after creation.
             if (!empty($model->object_lock_enabled)) {
+                // Resolve account UUID for owner_tenant_id (required by agent protocol).
+                $ownerUuid = Accounts::withoutGlobalScopes()
+                    ->find($model->s3_account_id)
+                    ?->uuid ?? '';
+
                 S3AgentCommandService::wormBucketCreate($server->uuid, [
                     'name'             => $model->name,
+                    'bucket_id'        => $model->uuid,
+                    'owner_tenant_id'  => $ownerUuid,
                     'object_lock_mode' => $model->object_lock_mode ?? 'COMPLIANCE',
                     'retention_days'   => (int) ($model->object_lock_days ?? 1),
                 ]);
+
+                // Record the retention commitment in the platform ledger.
+                WormCommitmentsService::createFromBucket($model);
             } else {
                 S3AgentCommandService::bucketCreate($server->uuid, [
                     'name'            => $model->name,
+                    'bucket_id'       => $model->uuid,
                     'versioning'      => $model->versioning ?? 'Suspended',
                     'lifecycle_rules' => $model->lifecycle_rules,
                 ]);
@@ -109,12 +122,22 @@ class BucketsService extends AbstractBucketsService
 
         if ($server) {
             if (!empty($model->object_lock_enabled)) {
+                $ownerUuid = Accounts::withoutGlobalScopes()
+                    ->find($model->s3_account_id)
+                    ?->uuid ?? '';
+
                 // WORM bucket: relay retention policy changes to the agent.
                 S3AgentCommandService::wormBucketUpdate($server->uuid, [
                     'name'             => $model->name,
+                    'bucket_id'        => $model->uuid,
+                    'owner_tenant_id'  => $ownerUuid,
                     'object_lock_mode' => $model->object_lock_mode,
                     'retention_days'   => (int) ($model->object_lock_days ?? 1),
                 ]);
+
+                // Supersede old commitment and write a new one if retention policy changed.
+                // Throws NotAllowedException if a COMPLIANCE period is shortened.
+                WormCommitmentsService::supersede($model);
             } else {
                 S3AgentCommandService::bucketUpdate($server->uuid, [
                     'name'            => $model->name,
@@ -146,14 +169,36 @@ class BucketsService extends AbstractBucketsService
         $serverId = $model->s3_server_id;
         $isWorm   = !empty($model->object_lock_enabled);
 
+        // Gate: a COMPLIANCE commitment that has not yet expired blocks deletion.
+        // GOVERNANCE commitments are cancelled (with pro-rata refund) on delete.
+        if ($isWorm) {
+            $activeCommitment = WormCommitmentsService::getActiveForBucket($model->id);
+
+            if ($activeCommitment) {
+                $locksUntil = Carbon::parse($activeCommitment->locks_until);
+
+                if (strtoupper($activeCommitment->mode) === 'COMPLIANCE' && $locksUntil->isFuture()) {
+                    throw new NotAllowedException(
+                        'Cannot delete a bucket with an active COMPLIANCE retention commitment. ' .
+                        'Retention expires ' . $locksUntil->toIso8601String() . '.'
+                    );
+                }
+
+                if (strtoupper($activeCommitment->mode) === 'GOVERNANCE') {
+                    // Cancel the GOVERNANCE commitment and issue a pro-rata refund.
+                    WormCommitmentsService::cancel($activeCommitment->uuid);
+                }
+            }
+        }
+
         parent::delete($id);
 
         $server = Servers::withoutGlobalScopes()->find($serverId);
 
         if ($server) {
             // WORM buckets require worm_bucket_delete so the agent can enforce
-            // that all objects are expired before removing the bucket.
-            if (!empty($isWorm)) {
+            // that all objects have expired before removing the bucket.
+            if ($isWorm) {
                 S3AgentCommandService::wormBucketDelete($server->uuid, $name);
             } else {
                 S3AgentCommandService::bucketDelete($server->uuid, $name);

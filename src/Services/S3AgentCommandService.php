@@ -5,6 +5,7 @@ namespace NextDeveloper\S3\Services;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use NextDeveloper\Events\Services\NatsService;
+use NextDeveloper\S3\Database\Models\Accounts;
 use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\AccessKeys;
@@ -36,6 +37,12 @@ class S3AgentCommandService
         // Collect account IDs from the buckets already fetched for this server.
         $accountIds = $buckets->pluck('s3_account_id')->filter()->unique()->values();
 
+        // Load accounts so we can resolve UUIDs for owner_tenant_id.
+        $accounts = Accounts::withoutGlobalScopes()
+            ->whereIn('id', $accountIds)
+            ->get(['id', 'uuid'])
+            ->keyBy('id');
+
         $keys = AccessKeys::withoutGlobalScopes()
             ->whereIn('s3_account_id', $accountIds)
             ->where('status', 'active')
@@ -44,6 +51,8 @@ class S3AgentCommandService
         static::dispatch($serverUuid, 'full_sync', [
             'buckets'  => $buckets->map(fn ($b) => [
                 'name'                => $b->name,
+                'bucket_id'           => $b->uuid,
+                'owner_tenant_id'     => $accounts->get($b->s3_account_id)?->uuid ?? '',
                 'versioning'          => $b->versioning ?? 'Suspended',
                 'object_lock_enabled' => (bool) ($b->object_lock_enabled ?? false),
                 'object_lock_mode'    => $b->object_lock_mode,
