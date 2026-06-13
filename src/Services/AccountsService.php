@@ -3,6 +3,8 @@
 namespace NextDeveloper\S3\Services;
 
 use NextDeveloper\IAM\Helpers\UserHelper;
+use NextDeveloper\S3\Database\Models\Buckets;
+use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Services\AbstractServices\AbstractAccountsService;
 
 /**
@@ -46,11 +48,14 @@ class AccountsService extends AbstractAccountsService
     }
 
     /**
-     * Block an account, preventing all S3 operations.
+     * Block an account: marks it blocked in the DB then pushes customer_block
+     * to every connected agent server where the account has active buckets.
      */
     public static function block(string $uuid, string $reason): \NextDeveloper\S3\Database\Models\Accounts
     {
-        $model = \NextDeveloper\S3\Database\Models\Accounts::where('uuid', $uuid)->firstOrFail();
+        $model = \NextDeveloper\S3\Database\Models\Accounts::withoutGlobalScopes()
+            ->where('uuid', $uuid)
+            ->firstOrFail();
 
         $model->update([
             'status'         => 'blocked',
@@ -58,20 +63,27 @@ class AccountsService extends AbstractAccountsService
             'blocked_reason' => $reason,
         ]);
 
+        // Suspend the tenant on every agent that hosts their buckets.
+        static::dispatchToAccountServers($model, 'block');
+
         AuditLogsService::log('account.block', UserHelper::me()->uuid ?? 'system', [
-            's3_account_id' => $model->id,
-            'reason'        => $reason,
+            'iam_account_id' => $model->iam_account_id,
+            's3_account_id'  => $model->id,
+            'reason'         => $reason,
         ]);
 
         return $model->fresh();
     }
 
     /**
-     * Remove a block and restore the account to active status.
+     * Unblock an account: restores active status in the DB then pushes
+     * customer_unblock to every connected agent server.
      */
     public static function unblock(string $uuid): \NextDeveloper\S3\Database\Models\Accounts
     {
-        $model = \NextDeveloper\S3\Database\Models\Accounts::where('uuid', $uuid)->firstOrFail();
+        $model = \NextDeveloper\S3\Database\Models\Accounts::withoutGlobalScopes()
+            ->where('uuid', $uuid)
+            ->firstOrFail();
 
         $model->update([
             'status'         => 'active',
@@ -79,10 +91,46 @@ class AccountsService extends AbstractAccountsService
             'blocked_reason' => null,
         ]);
 
+        // Restore the tenant's keys on every agent that hosts their buckets.
+        static::dispatchToAccountServers($model, 'unblock');
+
         AuditLogsService::log('account.unblock', UserHelper::me()->uuid ?? 'system', [
-            's3_account_id' => $model->id,
+            'iam_account_id' => $model->iam_account_id,
+            's3_account_id'  => $model->id,
         ]);
 
         return $model->fresh();
+    }
+
+    /**
+     * Dispatch customer_block or customer_unblock to every connected agent
+     * server that hosts at least one active bucket for this account.
+     */
+    private static function dispatchToAccountServers(
+        \NextDeveloper\S3\Database\Models\Accounts $account,
+        string $operation
+    ): void {
+        $serverIds = Buckets::withoutGlobalScopes()
+            ->where('s3_account_id', $account->id)
+            ->whereNull('deleted_at')
+            ->distinct()
+            ->pluck('s3_server_id');
+
+        if ($serverIds->isEmpty()) {
+            return;
+        }
+
+        $servers = Servers::withoutGlobalScopes()
+            ->whereIn('id', $serverIds)
+            ->where('agent_status', 'connected')
+            ->get();
+
+        foreach ($servers as $server) {
+            if ($operation === 'block') {
+                S3AgentCommandService::customerBlock($server->uuid, $account->uuid);
+            } else {
+                S3AgentCommandService::customerUnblock($server->uuid, $account->uuid);
+            }
+        }
     }
 }

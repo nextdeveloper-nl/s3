@@ -60,10 +60,12 @@ class S3AgentCommandService
                 'lifecycle_rules'     => $b->lifecycle_rules,
             ])->values()->all(),
             'iam_keys' => $keys->map(fn ($k) => [
-                'access_key'  => $k->access_key,
-                'secret_key'  => S3KeyHelper::decrypt($k->secret_key_enc),
-                'role'        => $k->role,
-                'bucket_acls' => $k->bucket_acls ?? [],
+                'access_key'      => $k->access_key,
+                'secret_key'      => S3KeyHelper::decrypt($k->secret_key_enc),
+                'role'            => $k->role,
+                'bucket_acls'     => $k->bucket_acls ?? [],
+                // owner_tenant_id lets the agent map keys to tenants for customer_block/unblock.
+                'owner_tenant_id' => $accounts->get($k->s3_account_id)?->uuid ?? '',
             ])->values()->all(),
         ], timeoutS: 120);
     }
@@ -111,6 +113,28 @@ class S3AgentCommandService
     public static function wormBucketDelete(string $serverUuid, string $name): void
     {
         static::dispatch($serverUuid, 'worm_bucket_delete', ['name' => $name]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Customer block / unblock
+    // -------------------------------------------------------------------------
+
+    /**
+     * Block a tenant on the agent: suspends all their IAM keys so every
+     * S3 request returns 403 until they are unblocked.
+     * The agent identifies the tenant's keys via owner_tenant_id sent in full_sync.
+     */
+    public static function customerBlock(string $serverUuid, string $ownerTenantUuid): void
+    {
+        static::dispatch($serverUuid, 'customer_block', ['owner_tenant_id' => $ownerTenantUuid]);
+    }
+
+    /**
+     * Unblock a tenant on the agent: restores all their IAM keys.
+     */
+    public static function customerUnblock(string $serverUuid, string $ownerTenantUuid): void
+    {
+        static::dispatch($serverUuid, 'customer_unblock', ['owner_tenant_id' => $ownerTenantUuid]);
     }
 
     public static function iamCreate(string $serverUuid, array $key): void
