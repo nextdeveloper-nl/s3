@@ -48,11 +48,15 @@ class AuditLogsService extends AbstractAuditLogsService
         $data = [
             'action'       => $action,
             'performed_by' => $performedBy,
-            'performed_at' => now(),
+            // Allow callers to pass the agent's original timestamp via context['performed_at'].
+            'performed_at' => $context['performed_at'] ?? now(),
         ];
 
-        // Map recognized context keys directly onto the record
+        // Map recognized context keys directly onto their DB columns.
+        // iam_account_id and iam_user_id must be mapped explicitly — they must
+        // not fall through to the JSON data column.
         $fillable = [
+            'iam_account_id', 'iam_user_id',
             's3_account_id', 's3_server_id', 's3_access_key_id',
             's3_bucket_id', 's3_worm_commitment_id', 'reason',
         ];
@@ -63,8 +67,9 @@ class AuditLogsService extends AbstractAuditLogsService
             }
         }
 
-        // Remaining context keys go into the JSON data column
-        $extra = array_diff_key($context, array_flip(array_merge($fillable, ['iam_account_id', 'iam_user_id'])));
+        // Everything else goes into the JSON data column (e.g. object_key, size_bytes).
+        $skip  = array_merge($fillable, ['performed_at']);
+        $extra = array_diff_key($context, array_flip($skip));
         if (!empty($extra)) {
             $data['data'] = $extra;
         }

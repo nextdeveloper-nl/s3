@@ -5,10 +5,13 @@ namespace NextDeveloper\S3\Services;
 use Illuminate\Support\Facades\Log;
 use NextDeveloper\Events\Services\Events;
 use NextDeveloper\IAM\Helpers\UserHelper;
+use NextDeveloper\S3\Database\Models\AccessKeys;
 use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
+use NextDeveloper\S3\Services\AuditLogsService;
 use NextDeveloper\S3\Services\BandwidthMonthliesService;
 use NextDeveloper\S3\Services\S3AgentCommandService;
+use NextDeveloper\S3\Services\WormCommitmentsService;
 
 /**
  * Handles all inbound NATS messages from the storaged (seaweed) agent.
@@ -40,6 +43,7 @@ class S3AgentService
             'heartbeat'    => static::handleHeartbeat($server, $payload),
             'telemetry'    => static::handleTelemetry($server, $payload),
             's3_telemetry' => static::handleS3Telemetry($server, $payload),
+            'object_event' => static::handleObjectEvents($server, $payload),
             'alert'        => static::handleAlert($server, $payload),
             'result'       => static::handleResult($server, $payload),
             default        => Log::warning('[S3AgentService] Unknown message type', [
@@ -166,6 +170,12 @@ class S3AgentService
                     'size_bytes'     => $stats['size_bytes']      ?? $bucket->size_bytes,
                     'replica_health' => $stats['replica_health']  ?? $bucket->replica_health,
                 ]);
+
+                // Keep the WORM commitment's quota_bytes in sync with the actual bucket size.
+                if (!empty($bucket->object_lock_enabled) && isset($stats['size_bytes'])) {
+                    $commitment = WormCommitmentsService::getActiveForBucket($bucket->id);
+                    $commitment?->update(['quota_bytes' => $stats['size_bytes']]);
+                }
             });
         }
 
@@ -300,5 +310,109 @@ class S3AgentService
         } elseif ($status === 'failed') {
             Events::fire('agent.s3.command.failed', $server, $payload);
         }
+    }
+
+    /**
+     * Receive per-object PUT/DELETE events pushed by the agent and write them
+     * to s3_audit_logs.
+     *
+     * Expected payload shape:
+     * {
+     *   "events": [
+     *     {
+     *       "bucket":       "worm-pc-logo",
+     *       "object_key":   "logo.png",
+     *       "action":       "PUT",          // PUT | DELETE
+     *       "size_bytes":   6372,           // present on PUT, omit on DELETE
+     *       "retain_until": "2026-07-13T..",// present on WORM PUT, omit otherwise
+     *       "access_key":   "AKIA...",      // S3 access key string that performed the op
+     *       "performed_at": "2026-06-13T.." // RFC3339 timestamp from agent
+     *     }
+     *   ]
+     * }
+     */
+    private static function handleObjectEvents(Servers $server, array $payload): void
+    {
+        $events = $payload['events'] ?? [];
+        if (empty($events)) {
+            return;
+        }
+
+        // Cache bucket and access-key lookups within this batch to avoid N+1 queries.
+        $bucketCache = [];
+        $keyCache    = [];
+
+        foreach ($events as $event) {
+            $bucketName  = $event['bucket']       ?? null;
+            $objectKey   = $event['object_key']   ?? null;
+            $action      = strtoupper($event['action'] ?? '');
+            $sizeBytes   = isset($event['size_bytes'])   ? (int) $event['size_bytes']   : null;
+            $retainUntil = $event['retain_until'] ?? null;
+            $accessKeyId = $event['access_key']   ?? null;
+            $performedAt = $event['performed_at'] ?? now();
+
+            if (!$bucketName || !$objectKey || !in_array($action, ['PUT', 'DELETE'], true)) {
+                continue;
+            }
+
+            // Resolve bucket
+            if (!array_key_exists($bucketName, $bucketCache)) {
+                $bucketCache[$bucketName] = Buckets::withoutGlobalScopes()
+                    ->where('s3_server_id', $server->id)
+                    ->where('name', $bucketName)
+                    ->whereNull('deleted_at')
+                    ->first();
+            }
+
+            $bucket = $bucketCache[$bucketName];
+            if (!$bucket) {
+                Log::debug('[S3AgentService] object_event bucket not found — skipping', [
+                    'server_uuid' => $server->uuid,
+                    'bucket_name' => $bucketName,
+                ]);
+                continue;
+            }
+
+            // Resolve access key record (lookup by key string)
+            $accessKey = null;
+            if ($accessKeyId) {
+                if (!array_key_exists($accessKeyId, $keyCache)) {
+                    $keyCache[$accessKeyId] = AccessKeys::withoutGlobalScopes()
+                        ->where('access_key', $accessKeyId)
+                        ->first();
+                }
+                $accessKey = $keyCache[$accessKeyId];
+            }
+
+            // Resolve active WORM commitment when the bucket has object lock enabled.
+            $commitmentId = null;
+            if (!empty($bucket->object_lock_enabled)) {
+                $commitment   = WormCommitmentsService::getActiveForBucket($bucket->id);
+                $commitmentId = $commitment?->id;
+            }
+
+            AuditLogsService::log(
+                'object.' . strtolower($action),
+                $accessKeyId ?? 'unknown',
+                [
+                    'iam_account_id'        => $bucket->iam_account_id,
+                    's3_account_id'         => $bucket->s3_account_id,
+                    's3_server_id'          => $server->id,
+                    's3_bucket_id'          => $bucket->id,
+                    's3_access_key_id'      => $accessKey?->id,
+                    's3_worm_commitment_id' => $commitmentId,
+                    'performed_at'          => $performedAt,
+                    // object_key, size_bytes, retain_until land in data JSON
+                    'object_key'            => $objectKey,
+                    'size_bytes'            => $sizeBytes,
+                    'retain_until'          => $retainUntil,
+                ]
+            );
+        }
+
+        Log::info('[S3AgentService] Object events logged', [
+            'server_uuid' => $server->uuid,
+            'count'       => count($events),
+        ]);
     }
 }
