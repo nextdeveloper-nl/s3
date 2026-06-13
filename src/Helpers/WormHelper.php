@@ -25,7 +25,7 @@ class WormHelper
         $quotaGb = $quotaBytes / self::BYTES_PER_GB;
         $months = $retentionDays / 30;
 
-        return round($quotaGb * $pricePerGbMo * $months, 4);
+        return round($quotaGb * $pricePerGbMo * $months, 6);
     }
 
     /**
@@ -56,6 +56,6 @@ class WormHelper
 
         $refund = $commitment->deposit_amount * ($daysRemaining / $commitment->retention_days);
 
-        return round(max(0.0, $refund), 4);
+        return round(max(0.0, $refund), 6);
     }
 }
