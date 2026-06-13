@@ -22,6 +22,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $s3_bucket_id
  * @property integer $s3_account_id
  * @property integer $iam_account_id
+ * @property integer $common_currency_id
  * @property string $mode
  * @property integer $retention_days
  * @property integer $quota_bytes
@@ -54,6 +55,7 @@ class WormCommitments extends Model
             's3_bucket_id',
             's3_account_id',
             'iam_account_id',
+            'common_currency_id',
             'mode',
             'retention_days',
             'quota_bytes',
@@ -90,6 +92,7 @@ class WormCommitments extends Model
     'id' => 'integer',
     's3_bucket_id' => 'integer',
     's3_account_id' => 'integer',
+    'common_currency_id' => 'integer',
     'mode' => 'string',
     'retention_days' => 'integer',
     'quota_bytes' => 'integer',

@@ -48,13 +48,23 @@ class WormCommitmentsService extends AbstractWormCommitmentsService
      */
     public static function createFromBucket(Buckets $bucket): WormCommitments
     {
+        // Pull pricing from the server so the commitment carries its own billing context.
+        // Falls back to the platform-wide default if the server has no price set yet.
+        $server = \NextDeveloper\S3\Database\Models\Servers::withoutGlobalScopes()
+            ->find($bucket->s3_server_id);
+
+        $pricePerGb    = $server?->price_per_gb        ?? config('s3.worm.price_per_gb_mo', 0.023);
+        $currencyId    = $server?->common_currency_id  ?? null;
+
         return static::create([
-            's3_bucket_id'  => $bucket->id,
-            's3_account_id' => $bucket->s3_account_id,
-            'iam_account_id' => $bucket->iam_account_id,
-            'mode'          => $bucket->object_lock_mode ?? 'COMPLIANCE',
-            'retention_days' => (int) ($bucket->object_lock_days ?? 1),
-            'quota_bytes'   => 0,
+            's3_bucket_id'       => $bucket->id,
+            's3_account_id'      => $bucket->s3_account_id,
+            'iam_account_id'     => $bucket->iam_account_id,
+            'common_currency_id' => $currencyId,
+            'mode'               => $bucket->object_lock_mode ?? 'COMPLIANCE',
+            'retention_days'     => (int) ($bucket->object_lock_days ?? 1),
+            'quota_bytes'        => 0,
+            'price_per_gb_mo'    => $pricePerGb,
         ]);
     }
 

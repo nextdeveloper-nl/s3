@@ -33,6 +33,8 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property string $health
  * @property string $health_summary
  * @property $components
+ * @property float $price_per_gb
+ * @property integer $common_currency_id
  * @property array $tags
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
@@ -67,6 +69,8 @@ class Servers extends Model
             'health',
             'health_summary',
             'components',
+            'price_per_gb',
+            'common_currency_id',
             'tags',
     ];
 
@@ -102,6 +106,8 @@ class Servers extends Model
     'health' => 'string',
     'health_summary' => 'string',
     'components' => 'array',
+    'price_per_gb' => 'float',
+    'common_currency_id' => 'integer',
     'tags' => \NextDeveloper\Commons\Database\Casts\TextArray::class,
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
