@@ -4,7 +4,11 @@ namespace NextDeveloper\S3\Services;
 
 use Illuminate\Support\Facades\Log;
 use NextDeveloper\Events\Services\Events;
+use NextDeveloper\IAM\Helpers\UserHelper;
+use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
+use NextDeveloper\S3\Services\BandwidthMonthliesService;
+use NextDeveloper\S3\Services\S3AgentCommandService;
 
 /**
  * Handles all inbound NATS messages from the storaged (seaweed) agent.
@@ -33,11 +37,12 @@ class S3AgentService
         }
 
         match ($type) {
-            'heartbeat' => static::handleHeartbeat($server, $payload),
-            'telemetry' => static::handleTelemetry($server, $payload),
-            'alert'     => static::handleAlert($server, $payload),
-            'result'    => static::handleResult($server, $payload),
-            default     => Log::warning('[S3AgentService] Unknown message type', [
+            'heartbeat'    => static::handleHeartbeat($server, $payload),
+            'telemetry'    => static::handleTelemetry($server, $payload),
+            's3_telemetry' => static::handleS3Telemetry($server, $payload),
+            'alert'        => static::handleAlert($server, $payload),
+            'result'       => static::handleResult($server, $payload),
+            default        => Log::warning('[S3AgentService] Unknown message type', [
                 'type'       => $type,
                 'agent_uuid' => $agentUuid,
             ]),
@@ -54,11 +59,13 @@ class S3AgentService
     {
         $wasPending = $server->agent_status === 'pending';
 
-        $server->update([
-            'agent_status'       => 'connected',
-            'agent_last_seen_at' => now(),
-            'agent_version'      => $payload['version'] ?? $server->agent_version,
-        ]);
+        UserHelper::runAsAdmin(function () use ($server, $payload) {
+            $server->update([
+                'agent_status'       => 'connected',
+                'agent_last_seen_at' => now(),
+                'agent_version'      => $payload['version'] ?? $server->agent_version,
+            ]);
+        });
 
         // First heartbeat from a newly-provisioned server: send the full desired state.
         if ($wasPending) {
@@ -70,36 +77,154 @@ class S3AgentService
     }
 
     /**
+     * Handles type=s3_telemetry — the S3-specific 30s tick from the agent.
+     *
+     * Payload keys: components (SeaweedFS service health), buckets (storage stats),
+     * traffic (per-bucket request/byte deltas since last flush).
+     */
+    private static function handleS3Telemetry(Servers $server, array $payload): void
+    {
+        UserHelper::runAsAdmin(function () use ($server, $payload) {
+            $update = [
+                'agent_status'       => 'connected',
+                'agent_last_seen_at' => now(),
+            ];
+
+            // Store raw component health from the agent (master, volume, filer, s3, etc.)
+            if (!empty($payload['components'])) {
+                $update['components'] = $payload['components'];
+            }
+
+            $server->update($update);
+        });
+
+        // Update per-bucket storage stats (object_count, size_bytes, replica_health)
+        static::updateBucketStatsFromTelemetry($server, $payload['buckets'] ?? []);
+
+        // Accumulate per-bucket traffic deltas into the monthly bandwidth table
+        static::handleTrafficDeltas($server, $payload['traffic'] ?? []);
+    }
+
+    /**
      * Persist a 30-second snapshot and update the live health fields on the server record.
      *
-     * The NATS telemetry payload nests SeaweedFS stats under a "seaweedfs" key; both
-     * ServerTelemetriesService and ServersService::updateHealthFromTelemetry() expect
-     * that flat sub-object.
+     * The agent sends OS-level metrics (cpu, memory, disks, network) as type=telemetry.
      */
     private static function handleTelemetry(Servers $server, array $payload): void
     {
-        $seaweedfs = $payload['seaweedfs'] ?? [];
-
-        if (empty($seaweedfs)) {
-            Log::warning('[S3AgentService] Telemetry missing seaweedfs block', [
-                'server_uuid' => $server->uuid,
+        // Always update the heartbeat timestamp — any telemetry proves the agent is alive.
+        UserHelper::runAsAdmin(function () use ($server) {
+            $server->update([
+                'agent_status'       => 'connected',
+                'agent_last_seen_at' => now(),
             ]);
+        });
+
+        // Persist the snapshot — stores OS metrics now, SeaweedFS fields when available.
+        ServerTelemetriesService::ingest($server->uuid, $payload);
+
+        // Per-bucket stats — present when agent sends a "buckets" array.
+        static::updateBucketStatsFromTelemetry($server, $payload['buckets'] ?? []);
+
+        // Per-bucket traffic deltas — each item is bytes since the last 30s flush.
+        static::handleTrafficDeltas($server, $payload['traffic'] ?? []);
+    }
+
+    /**
+     * Walk the buckets array from a telemetry payload and update each matching DB row.
+     * Uses the bucket name + server as the lookup key.
+     */
+    private static function updateBucketStatsFromTelemetry(Servers $server, array $buckets): void
+    {
+        if (empty($buckets)) {
             return;
         }
 
-        // Merge in agent_version from the top-level payload so updateHealthFromTelemetry
-        // can persist it alongside the health fields.
-        $seaweedfs['agent_version'] = $payload['uptime_s'] ?? null
-            ? ($server->agent_version ?? null)
-            : null;
+        foreach ($buckets as $stats) {
+            $name = $stats['name'] ?? null;
+            if (!$name) {
+                continue;
+            }
 
-        // Append-only snapshot row + update live server health
-        ServerTelemetriesService::ingest($server->uuid, $seaweedfs);
+            $bucket = Buckets::withoutGlobalScopes()
+                ->where('s3_server_id', $server->id)
+                ->where('name', $name)
+                ->whereNull('deleted_at')
+                ->first();
 
-        // Update the last-seen timestamp regardless of threshold PATCH logic
-        $server->update([
-            'agent_status'       => 'connected',
-            'agent_last_seen_at' => now(),
+            if (!$bucket) {
+                Log::debug('[S3AgentService] Telemetry bucket not found in DB — skipping', [
+                    'server_uuid' => $server->uuid,
+                    'bucket_name' => $name,
+                ]);
+                continue;
+            }
+
+            UserHelper::runAsAdmin(function () use ($bucket, $stats) {
+                $bucket->update([
+                    'object_count'   => $stats['object_count']   ?? $bucket->object_count,
+                    'size_bytes'     => $stats['size_bytes']      ?? $bucket->size_bytes,
+                    'replica_health' => $stats['replica_health']  ?? $bucket->replica_health,
+                ]);
+            });
+        }
+
+        Log::info('[S3AgentService] Bucket stats updated from telemetry', [
+            'server_uuid'  => $server->uuid,
+            'bucket_count' => count($buckets),
+        ]);
+    }
+
+    /**
+     * Accumulate per-bucket traffic deltas into the monthly bandwidth table.
+     *
+     * Each item: {bucket: string, bytes_in: int, bytes_out: int}
+     * bytes_in  = ingress (PUT/POST request_length)
+     * bytes_out = egress  (GET bytes_sent)
+     * 4xx/5xx responses are excluded by the agent before reporting.
+     */
+    private static function handleTrafficDeltas(Servers $server, array $traffic): void
+    {
+        if (empty($traffic)) {
+            return;
+        }
+
+        foreach ($traffic as $delta) {
+            $bucketName = $delta['bucket_name'] ?? null;
+            $bytesIn    = (int) ($delta['bytes_in']  ?? 0);
+            $bytesOut   = (int) ($delta['bytes_out'] ?? 0);
+
+            if (!$bucketName || ($bytesIn === 0 && $bytesOut === 0)) {
+                continue;
+            }
+
+            $bucket = Buckets::withoutGlobalScopes()
+                ->where('s3_server_id', $server->id)
+                ->where('name', $bucketName)
+                ->whereNull('deleted_at')
+                ->first();
+
+            if (!$bucket) {
+                Log::debug('[S3AgentService] Traffic delta bucket not found — skipping', [
+                    'server_uuid' => $server->uuid,
+                    'bucket_name' => $bucketName,
+                ]);
+                continue;
+            }
+
+            UserHelper::runAsAdmin(function () use ($bucket, $bytesIn, $bytesOut) {
+                if ($bytesIn > 0) {
+                    BandwidthMonthliesService::addIngress($bucket->s3_account_id, $bytesIn);
+                }
+                if ($bytesOut > 0) {
+                    BandwidthMonthliesService::addEgress($bucket->s3_account_id, $bytesOut);
+                }
+            });
+        }
+
+        Log::info('[S3AgentService] Traffic deltas accumulated', [
+            'server_uuid'  => $server->uuid,
+            'bucket_count' => count($traffic),
         ]);
     }
 
@@ -127,6 +252,7 @@ class S3AgentService
     {
         $commandId = $payload['command_id'] ?? null;
         $status    = $payload['status']     ?? 'unknown';
+        $output    = $payload['output']     ?? [];
 
         if (!$commandId) {
             Log::warning('[S3AgentService] Result missing command_id', [
@@ -142,7 +268,36 @@ class S3AgentService
             'message'     => $payload['message'] ?? null,
         ]);
 
-        if ($status === 'failed') {
+        if ($status === 'completed') {
+            // Agent completed a command — it is reachable and healthy.
+            UserHelper::runAsAdmin(function () use ($server) {
+                $server->update([
+                    'agent_status'       => 'connected',
+                    'agent_last_seen_at' => now(),
+                    'health'             => 'healthy',
+                ]);
+            });
+
+            // full_sync results carry bucket/IAM diff counts in the output.
+            if (array_key_exists('buckets_created', $output)) {
+                Log::info('[S3AgentService] full_sync completed', [
+                    'server_uuid'     => $server->uuid,
+                    'buckets_created' => $output['buckets_created'] ?? 0,
+                    'buckets_deleted' => $output['buckets_deleted'] ?? 0,
+                    'iam_created'     => $output['iam_created']     ?? 0,
+                    'iam_deleted'     => $output['iam_deleted']     ?? 0,
+                ]);
+            }
+
+            // s3.bucket.stats results: output is {"buckets": [...], "traffic": [...]}
+            if (isset($output['buckets']) && is_array($output['buckets'])) {
+                static::updateBucketStatsFromTelemetry($server, $output['buckets']);
+            }
+
+            if (!empty($output['traffic'])) {
+                static::handleTrafficDeltas($server, $output['traffic']);
+            }
+        } elseif ($status === 'failed') {
             Events::fire('agent.s3.command.failed', $server, $payload);
         }
     }

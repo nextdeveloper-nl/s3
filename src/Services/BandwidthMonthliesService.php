@@ -53,9 +53,10 @@ class BandwidthMonthliesService extends AbstractBandwidthMonthliesService
             ->update(['egress_bytes' => 0, 'ingress_bytes' => 0]);
     }
 
-    private static function upsert(int $s3AccountId, Carbon $month, string $column, int $bytes): void
+    private static function upsert(int $s3AccountId, Carbon $month, string $column, int $bytes, ?int $iamAccountId = null): void
     {
-        $record = BandwidthMonthlies::where('s3_account_id', $s3AccountId)
+        $record = BandwidthMonthlies::withoutGlobalScopes()
+            ->where('s3_account_id', $s3AccountId)
             ->whereYear('month', $month->year)
             ->whereMonth('month', $month->month)
             ->first();
@@ -64,9 +65,15 @@ class BandwidthMonthliesService extends AbstractBandwidthMonthliesService
             $record->increment($column, $bytes);
             $record->update(['updated_at' => now()]);
         } else {
+            // Resolve iam_account_id from the s3 account when not provided explicitly.
+            if ($iamAccountId === null) {
+                $account       = \NextDeveloper\S3\Database\Models\Accounts::withoutGlobalScopes()->find($s3AccountId);
+                $iamAccountId  = $account?->iam_account_id ?? 0;
+            }
+
             BandwidthMonthlies::create([
                 's3_account_id'  => $s3AccountId,
-                'iam_account_id' => UserHelper::currentAccount()->id,
+                'iam_account_id' => $iamAccountId,
                 'month'          => $month->startOfMonth(),
                 'egress_bytes'   => $column === 'egress_bytes' ? $bytes : 0,
                 'ingress_bytes'  => $column === 'ingress_bytes' ? $bytes : 0,

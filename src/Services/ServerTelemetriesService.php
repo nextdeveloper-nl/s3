@@ -21,33 +21,46 @@ class ServerTelemetriesService extends AbstractServerTelemetriesService
      * Persist a 30-second telemetry snapshot from the storaged agent
      * and update the parent server's health summary.
      *
+     * The agent payload contains OS-level metrics (cpu, memory, disks, network) in all versions.
+     * SeaweedFS cluster metrics (master_reachable, volume_count, etc.) arrive under a "seaweedfs"
+     * sub-key in future agent versions.
+     *
      * @param  string  $serverUuid  UUID of the s3_servers record
-     * @param  array   $telemetry   Keys: master_reachable, volume_count, volumes_degraded,
-     *                              capacity_bytes_total, capacity_bytes_used, agent_version, etc.
+     * @param  array   $payload     Full telemetry payload from the NATS envelope
      */
-    public static function ingest(string $serverUuid, array $telemetry): void
+    public static function ingest(string $serverUuid, array $payload): void
     {
-        $server = Servers::where('uuid', $serverUuid)->first();
+        $server = Servers::withoutGlobalScopes()->where('uuid', $serverUuid)->first();
         if (!$server) {
             return;
         }
 
-        $capacityPct = isset($telemetry['capacity_bytes_total']) && $telemetry['capacity_bytes_total'] > 0
-            ? round(($telemetry['capacity_bytes_used'] / $telemetry['capacity_bytes_total']) * 100, 2)
-            : 0;
+        // SeaweedFS cluster metrics — present when the agent sends a "seaweedfs" block
+        $seaweedfs   = $payload['seaweedfs'] ?? [];
+        $capacityPct = isset($seaweedfs['capacity_bytes_total']) && $seaweedfs['capacity_bytes_total'] > 0
+            ? round(($seaweedfs['capacity_bytes_used'] / $seaweedfs['capacity_bytes_total']) * 100, 2)
+            : null;
 
         \NextDeveloper\S3\Database\Models\ServerTelemetries::create([
-            's3_server_id'          => $server->id,
-            'reported_at'           => now(),
-            'master_reachable'      => $telemetry['master_reachable'] ?? true,
-            'volume_count'          => $telemetry['volume_count'] ?? 0,
-            'volumes_degraded'      => $telemetry['volumes_degraded'] ?? 0,
-            'capacity_bytes_total'  => $telemetry['capacity_bytes_total'] ?? 0,
-            'capacity_bytes_used'   => $telemetry['capacity_bytes_used'] ?? 0,
-            'capacity_pct'          => $capacityPct,
+            's3_server_id'         => $server->id,
+            'reported_at'          => now(),
+            // OS-level metrics — always present in current agent version
+            'cpu'     => $payload['cpu']     ?? null,
+            'ram'     => $payload['memory']  ?? null,
+            'disk'    => $payload['disks']   ?? null,
+            'network' => $payload['network'] ?? null,
+            // SeaweedFS cluster health — present in future agent versions
+            'master_reachable'     => $seaweedfs['master_reachable']    ?? null,
+            'volume_count'         => $seaweedfs['volume_count']         ?? null,
+            'volumes_degraded'     => $seaweedfs['volumes_degraded']     ?? null,
+            'capacity_bytes_total' => $seaweedfs['capacity_bytes_total'] ?? null,
+            'capacity_bytes_used'  => $seaweedfs['capacity_bytes_used']  ?? null,
+            'capacity_pct'         => $capacityPct,
         ]);
 
-        // Update live server health from this snapshot
-        ServersService::updateHealthFromTelemetry($serverUuid, $telemetry);
+        // Update live server health from the SeaweedFS block (no-op when empty)
+        if (!empty($seaweedfs)) {
+            ServersService::updateHealthFromTelemetry($serverUuid, $seaweedfs);
+        }
     }
 }

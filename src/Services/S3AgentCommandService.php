@@ -32,8 +32,12 @@ class S3AgentCommandService
             ->whereNull('deleted_at')
             ->get();
 
+        // AccessKeys belong to accounts, not directly to servers.
+        // Collect account IDs from the buckets already fetched for this server.
+        $accountIds = $buckets->pluck('s3_account_id')->filter()->unique()->values();
+
         $keys = AccessKeys::withoutGlobalScopes()
-            ->where('s3_server_id', $server->id)
+            ->whereIn('s3_account_id', $accountIds)
             ->where('status', 'active')
             ->get();
 
@@ -50,7 +54,7 @@ class S3AgentCommandService
                 'access_key'  => $k->access_key,
                 'secret_key'  => S3KeyHelper::decrypt($k->secret_key_enc),
                 'role'        => $k->role,
-                'bucket_acls' => $k->bucket_acls ?? (object) [],
+                'bucket_acls' => $k->bucket_acls ?? [],
             ])->values()->all(),
         ], timeoutS: 120);
     }
@@ -70,6 +74,36 @@ class S3AgentCommandService
         static::dispatch($serverUuid, 'bucket_update', $params);
     }
 
+    // -------------------------------------------------------------------------
+    // WORM / Object Lock operations
+    // -------------------------------------------------------------------------
+
+    /**
+     * Create a bucket with object lock enabled.
+     * Required params: name, object_lock_mode (COMPLIANCE|GOVERNANCE), retention_days.
+     */
+    public static function wormBucketCreate(string $serverUuid, array $params): void
+    {
+        static::dispatch($serverUuid, 'worm_bucket_create', $params);
+    }
+
+    /**
+     * Update WORM retention settings on an existing object-lock bucket.
+     * Required params: name. Optional: object_lock_mode, retention_days.
+     */
+    public static function wormBucketUpdate(string $serverUuid, array $params): void
+    {
+        static::dispatch($serverUuid, 'worm_bucket_update', $params);
+    }
+
+    /**
+     * Delete a WORM bucket (agent enforces that all objects must be expired first).
+     */
+    public static function wormBucketDelete(string $serverUuid, string $name): void
+    {
+        static::dispatch($serverUuid, 'worm_bucket_delete', ['name' => $name]);
+    }
+
     public static function iamCreate(string $serverUuid, array $key): void
     {
         static::dispatch($serverUuid, 'iam_create', $key);
@@ -83,6 +117,16 @@ class S3AgentCommandService
     public static function reconcile(string $serverUuid, string $scope = 'all'): void
     {
         static::dispatch($serverUuid, 'reconcile', ['scope' => $scope], timeoutS: 120);
+    }
+
+    /**
+     * Pull current stats for one bucket (or all buckets when $bucketName is null).
+     * The agent responds with a result containing an output.buckets array.
+     */
+    public static function bucketStats(string $serverUuid, ?string $bucketName = null): void
+    {
+        $params = $bucketName !== null ? ['bucket' => $bucketName] : [];
+        static::dispatch($serverUuid, 's3.bucket.stats', $params);
     }
 
     // -------------------------------------------------------------------------

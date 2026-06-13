@@ -31,6 +31,9 @@ class BandwidthMonthlies extends Model
 
     public $timestamps = true;
 
+    // The table has updated_at but no created_at column
+    const CREATED_AT = null;
+
     protected $table = 's3_bandwidth_monthly';
 
 

@@ -2,9 +2,13 @@
 
 namespace NextDeveloper\S3\Services;
 
+use Illuminate\Support\Facades\Log;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\S3\Database\Models\Accounts;
+use NextDeveloper\S3\Database\Models\Buckets;
+use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Services\AbstractServices\AbstractBucketsService;
+use NextDeveloper\S3\Services\S3AgentCommandService;
 
 /**
  * This class is responsible from managing the data for Buckets
@@ -19,7 +23,7 @@ class BucketsService extends AbstractBucketsService
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
     /**
-     * Create a bucket, validating quota and name format.
+     * Create a bucket, persist it, then push the bucket_create command to the agent.
      */
     public static function create(array $data)
     {
@@ -30,12 +34,17 @@ class BucketsService extends AbstractBucketsService
             );
         }
 
-        // Enforce max_buckets quota for the account
+        // Enforce max_buckets quota for the account.
+        // s3_account_id arrives as a UUID string from the API layer; look it up by UUID.
         if (!empty($data['s3_account_id'])) {
-            $account = Accounts::where('id', $data['s3_account_id'])->first();
+            $accountRef = $data['s3_account_id'];
+            $account = is_numeric($accountRef)
+                ? Accounts::withoutGlobalScopes()->find((int) $accountRef)
+                : Accounts::withoutGlobalScopes()->where('uuid', $accountRef)->first();
 
             if ($account && $account->quota_max_buckets > 0) {
-                $currentCount = \NextDeveloper\S3\Database\Models\Buckets::where('s3_account_id', $data['s3_account_id'])
+                $currentCount = Buckets::withoutGlobalScopes()
+                    ->where('s3_account_id', $account->id)
                     ->whereNull('deleted_at')
                     ->count();
 
@@ -47,21 +56,110 @@ class BucketsService extends AbstractBucketsService
             }
         }
 
-        $data['status'] = $data['status'] ?? 'active';
+        $data['status']         = $data['status']         ?? 'active';
+        $data['object_count']   = $data['object_count']   ?? 0;
+        $data['size_bytes']     = $data['size_bytes']      ?? 0;
+        $data['replica_health'] = $data['replica_health']  ?? 'unknown';
 
-        return parent::create($data);
+        $model = parent::create($data);
+
+        // Dispatch bucket_create to the server agent after the DB record is saved.
+        $server = Servers::withoutGlobalScopes()->find($model->s3_server_id);
+
+        if ($server) {
+            // WORM buckets need a dedicated agent command so SeaweedFS enables object lock at creation.
+            // A regular bucket cannot be converted to WORM after creation.
+            if (!empty($model->object_lock_enabled)) {
+                S3AgentCommandService::wormBucketCreate($server->uuid, [
+                    'name'             => $model->name,
+                    'object_lock_mode' => $model->object_lock_mode ?? 'COMPLIANCE',
+                    'retention_days'   => (int) ($model->object_lock_days ?? 1),
+                ]);
+            } else {
+                S3AgentCommandService::bucketCreate($server->uuid, [
+                    'name'            => $model->name,
+                    'versioning'      => $model->versioning ?? 'Suspended',
+                    'lifecycle_rules' => $model->lifecycle_rules,
+                ]);
+            }
+        } else {
+            Log::warning('[BucketsService] No server found for bucket — skipping agent command', [
+                'bucket_uuid'  => $model->uuid,
+                's3_server_id' => $model->s3_server_id,
+            ]);
+        }
+
+        return $model;
     }
 
     /**
-     * Update a bucket. Object lock fields are immutable post-creation.
+     * Update a bucket, persist it, then push the appropriate command to the agent.
+     *
+     * object_lock_enabled is immutable post-creation; object_lock_mode/object_lock_days
+     * can be updated on WORM buckets via worm_bucket_update.
      */
     public static function update($id, array $data)
     {
-        // Strip immutable object lock fields silently — they were set at creation
-        foreach (['object_lock_enabled', 'object_lock_mode', 'object_lock_days'] as $field) {
-            unset($data[$field]);
+        // object_lock_enabled cannot be changed after creation — strip it silently.
+        unset($data['object_lock_enabled']);
+
+        $model = parent::update($id, $data);
+
+        $server = Servers::withoutGlobalScopes()->find($model->s3_server_id);
+
+        if ($server) {
+            if (!empty($model->object_lock_enabled)) {
+                // WORM bucket: relay retention policy changes to the agent.
+                S3AgentCommandService::wormBucketUpdate($server->uuid, [
+                    'name'             => $model->name,
+                    'object_lock_mode' => $model->object_lock_mode,
+                    'retention_days'   => (int) ($model->object_lock_days ?? 1),
+                ]);
+            } else {
+                S3AgentCommandService::bucketUpdate($server->uuid, [
+                    'name'            => $model->name,
+                    'versioning'      => $model->versioning,
+                    'lifecycle_rules' => $model->lifecycle_rules,
+                ]);
+            }
         }
 
-        return parent::update($id, $data);
+        return $model;
+    }
+
+    /**
+     * Delete a bucket from the DB, then push bucket_delete to the agent.
+     */
+    public static function delete($id)
+    {
+        // Load before deleting so we have the name and server reference.
+        $model = Buckets::withoutGlobalScopes()->where('uuid', $id)->first();
+
+        if (!$model) {
+            throw new NotAllowedException(
+                'We cannot find the related object to delete. ' .
+                'Maybe you dont have the permission to delete this object?'
+            );
+        }
+
+        $name     = $model->name;
+        $serverId = $model->s3_server_id;
+        $isWorm   = !empty($model->object_lock_enabled);
+
+        parent::delete($id);
+
+        $server = Servers::withoutGlobalScopes()->find($serverId);
+
+        if ($server) {
+            // WORM buckets require worm_bucket_delete so the agent can enforce
+            // that all objects are expired before removing the bucket.
+            if (!empty($isWorm)) {
+                S3AgentCommandService::wormBucketDelete($server->uuid, $name);
+            } else {
+                S3AgentCommandService::bucketDelete($server->uuid, $name);
+            }
+        }
+
+        return true;
     }
 }

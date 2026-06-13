@@ -44,12 +44,18 @@ class ServerTelemetries extends Model
     protected $fillable = [
             's3_server_id',
             'reported_at',
+            // SeaweedFS cluster health (populated when seaweedfs block is present)
             'master_reachable',
             'volume_count',
             'volumes_degraded',
             'capacity_bytes_total',
             'capacity_bytes_used',
             'capacity_pct',
+            // OS-level metrics from the agent telemetry payload
+            'cpu',
+            'ram',
+            'disk',
+            'network',
     ];
 
     /**
@@ -72,14 +78,18 @@ class ServerTelemetries extends Model
      @var array
      */
     protected $casts = [
-    'id' => 'integer',
-    's3_server_id' => 'integer',
-    'reported_at' => 'datetime',
-    'master_reachable' => 'boolean',
-    'volume_count' => 'integer',
-    'volumes_degraded' => 'integer',
-    'capacity_bytes_total' => 'integer',
-    'capacity_bytes_used' => 'integer',
+        'id'                   => 'integer',
+        's3_server_id'         => 'integer',
+        'reported_at'          => 'datetime',
+        'master_reachable'     => 'boolean',
+        'volume_count'         => 'integer',
+        'volumes_degraded'     => 'integer',
+        'capacity_bytes_total' => 'integer',
+        'capacity_bytes_used'  => 'integer',
+        'cpu'     => 'array',
+        'ram'     => 'array',
+        'disk'    => 'array',
+        'network' => 'array',
     ];
 
     /**
