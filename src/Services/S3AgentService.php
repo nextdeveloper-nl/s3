@@ -43,7 +43,7 @@ class S3AgentService
             'heartbeat'    => static::handleHeartbeat($server, $payload),
             'telemetry'    => static::handleTelemetry($server, $payload),
             's3_telemetry' => static::handleS3Telemetry($server, $payload),
-            'object_event' => static::handleObjectEvents($server, $payload),
+            's3_audit'     => static::handleS3Audit($server, $payload),
             'alert'        => static::handleAlert($server, $payload),
             'result'       => static::handleResult($server, $payload),
             default        => Log::warning('[S3AgentService] Unknown message type', [
@@ -313,25 +313,27 @@ class S3AgentService
     }
 
     /**
-     * Receive per-object PUT/DELETE events pushed by the agent and write them
-     * to s3_audit_logs.
+     * Receive per-object PUT/DELETE events (type=s3_audit) pushed by the agent
+     * and write an immutable entry to s3_audit_logs for each.
      *
-     * Expected payload shape:
+     * Payload shape (agent contract v1):
      * {
      *   "events": [
      *     {
-     *       "bucket":       "worm-pc-logo",
-     *       "object_key":   "logo.png",
-     *       "action":       "PUT",          // PUT | DELETE
-     *       "size_bytes":   6372,           // present on PUT, omit on DELETE
-     *       "retain_until": "2026-07-13T..",// present on WORM PUT, omit otherwise
-     *       "access_key":   "AKIA...",      // S3 access key string that performed the op
-     *       "performed_at": "2026-06-13T.." // RFC3339 timestamp from agent
+     *       "bucket":       "my-bucket",
+     *       "object_key":   "path/to/file.txt",
+     *       "action":       "PUT" | "DELETE",  // POST normalised to PUT by agent
+     *       "size_bytes":   580,               // request body size; 0 for DELETE
+     *       "retain_until": "2026-07-13T..",   // WORM PUT only, omitted otherwise
+     *       "access_key":   "pcsadmin9e09aeda",
+     *       "client_ip":    "185.255.172.184",
+     *       "performed_at": "2026-06-13T10:13:07Z"
      *     }
      *   ]
      * }
+     * Multiple mutations in the same 500 ms window arrive as one envelope.
      */
-    private static function handleObjectEvents(Servers $server, array $payload): void
+    private static function handleS3Audit(Servers $server, array $payload): void
     {
         $events = $payload['events'] ?? [];
         if (empty($events)) {
@@ -349,6 +351,7 @@ class S3AgentService
             $sizeBytes   = isset($event['size_bytes'])   ? (int) $event['size_bytes']   : null;
             $retainUntil = $event['retain_until'] ?? null;
             $accessKeyId = $event['access_key']   ?? null;
+            $clientIp    = $event['client_ip']    ?? null;
             $performedAt = $event['performed_at'] ?? now();
 
             if (!$bucketName || !$objectKey || !in_array($action, ['PUT', 'DELETE'], true)) {
@@ -396,23 +399,29 @@ class S3AgentService
                 $commitmentId = $commitment?->id;
             }
 
-            AuditLogsService::log(
-                'object.' . strtolower($action),
-                $accessKeyId ?? 'unknown',
-                [
-                    'iam_account_id'        => $bucket->iam_account_id,
-                    's3_account_id'         => $bucket->s3_account_id,
-                    's3_server_id'          => $server->id,
-                    's3_bucket_id'          => $bucket->id,
-                    's3_access_key_id'      => $accessKey?->id,
-                    's3_worm_commitment_id' => $commitmentId,
-                    'performed_at'          => $performedAt,
-                    // object_key, size_bytes, retain_until land in data JSON
-                    'object_key'            => $objectKey,
-                    'size_bytes'            => $sizeBytes,
-                    'retain_until'          => $retainUntil,
-                ]
-            );
+            UserHelper::runAsAdmin(function () use (
+                $action, $accessKeyId, $bucket, $server, $accessKey,
+                $commitmentId, $performedAt, $objectKey, $sizeBytes, $retainUntil, $clientIp
+            ) {
+                AuditLogsService::log(
+                    'object.' . strtolower($action),
+                    $accessKeyId ?? 'unknown',
+                    [
+                        'iam_account_id'        => $bucket->iam_account_id,
+                        's3_account_id'         => $bucket->s3_account_id,
+                        's3_server_id'          => $server->id,
+                        's3_bucket_id'          => $bucket->id,
+                        's3_access_key_id'      => $accessKey?->id,
+                        's3_worm_commitment_id' => $commitmentId,
+                        'performed_at'          => $performedAt,
+                        // object_key, size_bytes, retain_until, client_ip land in data JSON
+                        'object_key'            => $objectKey,
+                        'size_bytes'            => $sizeBytes,
+                        'retain_until'          => $retainUntil,
+                        'client_ip'             => $clientIp,
+                    ]
+                );
+            });
         }
 
         Log::info('[S3AgentService] Object events logged', [
