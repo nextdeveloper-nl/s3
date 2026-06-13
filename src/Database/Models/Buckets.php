@@ -29,6 +29,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property $lifecycle_rules
  * @property string $versioning
  * @property boolean $mfa_delete
+ * @property boolean $is_object_audit_enabled
  * @property boolean $object_lock_enabled
  * @property string $object_lock_mode
  * @property integer $object_lock_days
@@ -66,6 +67,7 @@ class Buckets extends Model
             'lifecycle_rules',
             'versioning',
             'mfa_delete',
+            'is_object_audit_enabled',
             'object_lock_enabled',
             'object_lock_mode',
             'object_lock_days',
@@ -104,6 +106,7 @@ class Buckets extends Model
     'lifecycle_rules' => 'array',
     'versioning' => 'string',
     'mfa_delete' => 'boolean',
+    'is_object_audit_enabled' => 'boolean',
     'object_lock_enabled' => 'boolean',
     'object_lock_mode' => 'string',
     'object_lock_days' => 'integer',

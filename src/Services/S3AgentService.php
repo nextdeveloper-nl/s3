@@ -373,6 +373,11 @@ class S3AgentService
                 continue;
             }
 
+            // Safety net: skip if audit was disabled after the last full_sync was sent.
+            if (empty($bucket->is_object_audit_enabled) && empty($bucket->object_lock_enabled)) {
+                continue;
+            }
+
             // Resolve access key record (lookup by key string)
             $accessKey = null;
             if ($accessKeyId) {

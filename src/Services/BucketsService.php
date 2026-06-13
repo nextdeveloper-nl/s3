@@ -93,6 +93,7 @@ class BucketsService extends AbstractBucketsService
                     'bucket_id'       => $model->uuid,
                     'versioning'      => $model->versioning ?? 'Suspended',
                     'lifecycle_rules' => $model->lifecycle_rules,
+                    'audit_enabled'   => (bool) ($model->is_object_audit_enabled ?? false),
                 ]);
             }
         } else {
@@ -143,6 +144,7 @@ class BucketsService extends AbstractBucketsService
                     'name'            => $model->name,
                     'versioning'      => $model->versioning,
                     'lifecycle_rules' => $model->lifecycle_rules,
+                    'audit_enabled'   => (bool) ($model->is_object_audit_enabled ?? false),
                 ]);
             }
         }
