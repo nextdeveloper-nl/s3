@@ -33,6 +33,10 @@ class ServersTransformer extends AbstractServersTransformer
 
         $transformed = parent::transform($model);
 
+        // Expose pricing fields that are not in the auto-generated abstract transformer.
+        $transformed['price_per_gb']       = $model->price_per_gb;
+        $transformed['common_currency_id'] = $model->common_currency_id;
+
         Cache::set(
             CacheHelper::getKey('Servers', $model->uuid, 'Transformed'),
             $transformed
