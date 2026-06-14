@@ -5,7 +5,6 @@ namespace NextDeveloper\S3\Http\Transformers;
 use Illuminate\Support\Facades\Cache;
 use NextDeveloper\Commons\Common\Cache\CacheHelper;
 use NextDeveloper\S3\Database\Models\Servers;
-use NextDeveloper\Commons\Http\Transformers\AbstractTransformer;
 use NextDeveloper\S3\Http\Transformers\AbstractTransformers\AbstractServersTransformer;
 
 /**
@@ -27,20 +26,19 @@ class ServersTransformer extends AbstractServersTransformer
             CacheHelper::getKey('Servers', $model->uuid, 'Transformed')
         );
 
-        if($transformed) {
-            return $transformed;
+        if(!$transformed) {
+            $transformed = parent::transform($model);
+
+            Cache::set(
+                CacheHelper::getKey('Servers', $model->uuid, 'Transformed'),
+                $transformed
+            );
         }
 
-        $transformed = parent::transform($model);
-
-        // Expose pricing fields that are not in the auto-generated abstract transformer.
+        // Pricing fields are appended after the cache lookup so they always
+        // reflect the live model value and are never stale from a cached entry.
         $transformed['price_per_gb']       = $model->price_per_gb;
         $transformed['common_currency_id'] = $model->common_currency_id;
-
-        Cache::set(
-            CacheHelper::getKey('Servers', $model->uuid, 'Transformed'),
-            $transformed
-        );
 
         return $transformed;
     }
