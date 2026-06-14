@@ -5,6 +5,7 @@ namespace NextDeveloper\S3\Services;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
+use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\Accounts;
 use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
@@ -36,8 +37,23 @@ class BucketsService extends AbstractBucketsService
             );
         }
 
+        // Resolve s3_account_id from the current IAM account if not explicitly provided.
+        // This lets callers omit s3_account_id from the request entirely.
+        if (empty($data['s3_account_id'])) {
+            $iamAccountId = UserHelper::currentAccount()->id;
+            $s3Account = Accounts::withoutGlobalScopes()
+                ->where('iam_account_id', $iamAccountId)
+                ->first();
+
+            if (!$s3Account) {
+                throw new NotAllowedException('No S3 account found for the current IAM account.');
+            }
+
+            $data['s3_account_id'] = $s3Account->id;
+        }
+
         // Enforce max_buckets quota for the account.
-        // s3_account_id arrives as a UUID string from the API layer; look it up by UUID.
+        // s3_account_id may be a UUID string (from API) or an integer (resolved above).
         if (!empty($data['s3_account_id'])) {
             $accountRef = $data['s3_account_id'];
             $account = is_numeric($accountRef)

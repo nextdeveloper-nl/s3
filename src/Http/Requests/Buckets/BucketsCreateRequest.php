@@ -15,7 +15,7 @@ class BucketsCreateRequest extends AbstractFormRequest
     public function rules()
     {
         return [
-            's3_account_id'       => 'required|exists:s3_accounts,uuid|uuid',
+            // s3_account_id is resolved automatically from the current IAM account in BucketsService
             's3_server_id'        => 'required|exists:s3_servers,uuid|uuid',
             // Lowercase alphanumeric + hyphens, 3-63 chars, no leading/trailing hyphen
             'name'                => ['required', 'string', 'regex:/^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$/'],
