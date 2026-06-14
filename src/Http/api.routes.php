@@ -133,24 +133,24 @@ Route::prefix('usage-snapshots')->group(
     }
 );
 
-Route::prefix('bandwidth-monthly')->group(
+Route::prefix('bandwidth-monthlies')->group(
     function () {
-        Route::get('/', 'BandwidthMonthly\BandwidthMonthlyController@index');
-        Route::get('/actions', 'BandwidthMonthly\BandwidthMonthlyController@getActions');
+        Route::get('/', 'BandwidthMonthlies\BandwidthMonthliesController@index');
+        Route::get('/actions', 'BandwidthMonthlies\BandwidthMonthliesController@getActions');
 
-        Route::get('{s3_bandwidth_monthly}/tags ', 'BandwidthMonthly\BandwidthMonthlyController@tags');
-        Route::post('{s3_bandwidth_monthly}/tags ', 'BandwidthMonthly\BandwidthMonthlyController@saveTags');
-        Route::get('{s3_bandwidth_monthly}/addresses ', 'BandwidthMonthly\BandwidthMonthlyController@addresses');
-        Route::post('{s3_bandwidth_monthly}/addresses ', 'BandwidthMonthly\BandwidthMonthlyController@saveAddresses');
+        Route::get('{s3_bandwidth_monthlies}/tags ', 'BandwidthMonthlies\BandwidthMonthliesController@tags');
+        Route::post('{s3_bandwidth_monthlies}/tags ', 'BandwidthMonthlies\BandwidthMonthliesController@saveTags');
+        Route::get('{s3_bandwidth_monthlies}/addresses ', 'BandwidthMonthlies\BandwidthMonthliesController@addresses');
+        Route::post('{s3_bandwidth_monthlies}/addresses ', 'BandwidthMonthlies\BandwidthMonthliesController@saveAddresses');
 
-        Route::get('/{s3_bandwidth_monthly}/{subObjects}', 'BandwidthMonthly\BandwidthMonthlyController@relatedObjects');
-        Route::get('/{s3_bandwidth_monthly}', 'BandwidthMonthly\BandwidthMonthlyController@show');
+        Route::get('/{s3_bandwidth_monthlies}/{subObjects}', 'BandwidthMonthlies\BandwidthMonthliesController@relatedObjects');
+        Route::get('/{s3_bandwidth_monthlies}', 'BandwidthMonthlies\BandwidthMonthliesController@show');
 
-        Route::post('/', 'BandwidthMonthly\BandwidthMonthlyController@store');
-        Route::post('/{s3_bandwidth_monthly}/do/{action}', 'BandwidthMonthly\BandwidthMonthlyController@doAction');
+        Route::post('/', 'BandwidthMonthlies\BandwidthMonthliesController@store');
+        Route::post('/{s3_bandwidth_monthlies}/do/{action}', 'BandwidthMonthlies\BandwidthMonthliesController@doAction');
 
-        Route::patch('/{s3_bandwidth_monthly}', 'BandwidthMonthly\BandwidthMonthlyController@update');
-        Route::delete('/{s3_bandwidth_monthly}', 'BandwidthMonthly\BandwidthMonthlyController@destroy');
+        Route::patch('/{s3_bandwidth_monthlies}', 'BandwidthMonthlies\BandwidthMonthliesController@update');
+        Route::delete('/{s3_bandwidth_monthlies}', 'BandwidthMonthlies\BandwidthMonthliesController@destroy');
     }
 );
 
@@ -280,24 +280,24 @@ Route::prefix('worm-commitments')->group(
     }
 );
 
-Route::prefix('deposit-ledger')->group(
+Route::prefix('deposit-ledgers')->group(
     function () {
-        Route::get('/', 'DepositLedger\DepositLedgerController@index');
-        Route::get('/actions', 'DepositLedger\DepositLedgerController@getActions');
+        Route::get('/', 'DepositLedgers\DepositLedgersController@index');
+        Route::get('/actions', 'DepositLedgers\DepositLedgersController@getActions');
 
-        Route::get('{s3_deposit_ledger}/tags ', 'DepositLedger\DepositLedgerController@tags');
-        Route::post('{s3_deposit_ledger}/tags ', 'DepositLedger\DepositLedgerController@saveTags');
-        Route::get('{s3_deposit_ledger}/addresses ', 'DepositLedger\DepositLedgerController@addresses');
-        Route::post('{s3_deposit_ledger}/addresses ', 'DepositLedger\DepositLedgerController@saveAddresses');
+        Route::get('{s3_deposit_ledgers}/tags ', 'DepositLedgers\DepositLedgersController@tags');
+        Route::post('{s3_deposit_ledgers}/tags ', 'DepositLedgers\DepositLedgersController@saveTags');
+        Route::get('{s3_deposit_ledgers}/addresses ', 'DepositLedgers\DepositLedgersController@addresses');
+        Route::post('{s3_deposit_ledgers}/addresses ', 'DepositLedgers\DepositLedgersController@saveAddresses');
 
-        Route::get('/{s3_deposit_ledger}/{subObjects}', 'DepositLedger\DepositLedgerController@relatedObjects');
-        Route::get('/{s3_deposit_ledger}', 'DepositLedger\DepositLedgerController@show');
+        Route::get('/{s3_deposit_ledgers}/{subObjects}', 'DepositLedgers\DepositLedgersController@relatedObjects');
+        Route::get('/{s3_deposit_ledgers}', 'DepositLedgers\DepositLedgersController@show');
 
-        Route::post('/', 'DepositLedger\DepositLedgerController@store');
-        Route::post('/{s3_deposit_ledger}/do/{action}', 'DepositLedger\DepositLedgerController@doAction');
+        Route::post('/', 'DepositLedgers\DepositLedgersController@store');
+        Route::post('/{s3_deposit_ledgers}/do/{action}', 'DepositLedgers\DepositLedgersController@doAction');
 
-        Route::patch('/{s3_deposit_ledger}', 'DepositLedger\DepositLedgerController@update');
-        Route::delete('/{s3_deposit_ledger}', 'DepositLedger\DepositLedgerController@destroy');
+        Route::patch('/{s3_deposit_ledgers}', 'DepositLedgers\DepositLedgersController@update');
+        Route::delete('/{s3_deposit_ledgers}', 'DepositLedgers\DepositLedgersController@destroy');
     }
 );
 
@@ -470,5 +470,26 @@ Route::prefix('worm-expiring-perspective')->group(
 );
 
 // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+Route::prefix('bandwidth-monthlies')->group(
+    function () {
+        Route::get('/', 'BandwidthMonthlies\BandwidthMonthliesController@index');
+        Route::get('/actions', 'BandwidthMonthlies\BandwidthMonthliesController@getActions');
+
+        Route::get('{s3_bandwidth_monthlies}/tags ', 'BandwidthMonthlies\BandwidthMonthliesController@tags');
+        Route::post('{s3_bandwidth_monthlies}/tags ', 'BandwidthMonthlies\BandwidthMonthliesController@saveTags');
+        Route::get('{s3_bandwidth_monthlies}/addresses ', 'BandwidthMonthlies\BandwidthMonthliesController@addresses');
+        Route::post('{s3_bandwidth_monthlies}/addresses ', 'BandwidthMonthlies\BandwidthMonthliesController@saveAddresses');
+
+        Route::get('/{s3_bandwidth_monthlies}/{subObjects}', 'BandwidthMonthlies\BandwidthMonthliesController@relatedObjects');
+        Route::get('/{s3_bandwidth_monthlies}', 'BandwidthMonthlies\BandwidthMonthliesController@show');
+
+        Route::post('/', 'BandwidthMonthlies\BandwidthMonthliesController@store');
+        Route::post('/{s3_bandwidth_monthlies}/do/{action}', 'BandwidthMonthlies\BandwidthMonthliesController@doAction');
+
+        Route::patch('/{s3_bandwidth_monthlies}', 'BandwidthMonthlies\BandwidthMonthliesController@update');
+        Route::delete('/{s3_bandwidth_monthlies}', 'BandwidthMonthlies\BandwidthMonthliesController@destroy');
+    }
+);
 
 });
