@@ -154,4 +154,16 @@ class AccessKeysController extends AbstractController
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
+    public function reveal($ref)
+    {
+        $model = AccessKeysService::getByRef($ref);
+
+        if (!$model) {
+            return $this->withArray(['error' => 'Not found'], 404);
+        }
+
+        $secret = AccessKeysService::reveal($model->uuid);
+
+        return $this->withArray(['secret_key' => $secret]);
+    }
 }

@@ -471,6 +471,12 @@ Route::prefix('worm-expiring-perspective')->group(
 
 // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
+Route::prefix('access-keys')->group(
+    function () {
+        Route::get('/{s3_access_keys}/reveal', 'AccessKeys\AccessKeysController@reveal');
+    }
+);
+
 Route::prefix('bandwidth-monthlies')->group(
     function () {
         Route::get('/', 'BandwidthMonthlies\BandwidthMonthliesController@index');
