@@ -11,6 +11,7 @@ use NextDeveloper\S3\Database\Models\Accounts;
 use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Services\AbstractServices\AbstractBucketsService;
+use NextDeveloper\S3\Services\AccountsService;
 use NextDeveloper\S3\Services\S3AgentCommandService;
 use NextDeveloper\S3\Services\WormCommitmentsService;
 
@@ -45,15 +46,22 @@ class BucketsService extends AbstractBucketsService
         }
 
         // Resolve s3_account_id from the current IAM account if not explicitly provided.
-        // This lets callers omit s3_account_id from the request entirely.
+        // If no S3 account exists yet, provision one automatically so the customer
+        // does not need a separate onboarding step before creating their first bucket.
         if (empty($data['s3_account_id'])) {
-            $iamAccountId = UserHelper::currentAccount()->id;
+            $iamAccount = UserHelper::currentAccount();
             $s3Account = Accounts::withoutGlobalScopes()
-                ->where('iam_account_id', $iamAccountId)
+                ->where('iam_account_id', $iamAccount->id)
                 ->first();
 
             if (!$s3Account) {
-                throw new NotAllowedException('No S3 account found for the current IAM account.');
+                UserHelper::runAsAdmin(function () use ($iamAccount, &$s3Account) {
+                    $s3Account = AccountsService::create([
+                        'iam_account_id' => $iamAccount->id,
+                        'iam_user_id'    => UserHelper::me()->id,
+                        'slug'           => $iamAccount->slug ?? $iamAccount->uuid,
+                    ]);
+                });
             }
 
             $data['s3_account_id'] = $s3Account->id;
