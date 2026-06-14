@@ -7,23 +7,6 @@ use NextDeveloper\Commons\Http\Requests\AbstractFormRequest;
 class BucketsCreateRequest extends AbstractFormRequest
 {
 
-    /**
-     * @return array
-     */
-    public function rules()
-    {
-        return [
-            's3_account_id' => 'required|exists:s3_accounts,uuid|uuid',
-        's3_server_id' => 'required|exists:s3_servers,uuid|uuid',
-        'name' => 'required|string',
-        'replication_factor' => 'integer',
-        'lifecycle_rules' => '',
-        'versioning' => 'string',
-        'mfa_delete' => 'boolean',
-        'status' => 'string',
-        'tags' => '',
-        ];
-    }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
     /**
