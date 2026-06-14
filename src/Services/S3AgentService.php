@@ -168,11 +168,21 @@ class S3AgentService
             }
 
             UserHelper::runAsAdmin(function () use ($bucket, $stats) {
-                $bucket->update([
+                $update = [
                     'object_count'   => $stats['object_count']   ?? $bucket->object_count,
                     'size_bytes'     => $stats['size_bytes']      ?? $bucket->size_bytes,
                     'replica_health' => $stats['replica_health']  ?? $bucket->replica_health,
-                ]);
+                ];
+
+                // Mirror versioning_status from the agent for non-WORM buckets.
+                // WORM buckets report "" because SeaweedFS manages versioning internally.
+                if (!empty($stats['versioning_status']) && empty($bucket->object_lock_enabled)) {
+                    $update['versioning'] = $stats['versioning_status'] === 'enabled'
+                        ? 'Enabled'
+                        : 'Suspended';
+                }
+
+                $bucket->update($update);
 
                 // Keep the WORM commitment's quota_bytes in sync with the actual bucket size.
                 if (!empty($bucket->object_lock_enabled) && isset($stats['size_bytes'])) {

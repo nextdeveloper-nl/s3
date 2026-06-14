@@ -86,6 +86,24 @@ class S3AgentCommandService
         static::dispatch($serverUuid, 'bucket_update', $params);
     }
 
+    /**
+     * Enable versioning on a standard (non-WORM) bucket.
+     * Once enabled, versioning can only be suspended — never fully removed.
+     */
+    public static function bucketVersioningEnable(string $serverUuid, string $bucketName): void
+    {
+        static::dispatch($serverUuid, 'bucket_versioning_enable', ['name' => $bucketName]);
+    }
+
+    /**
+     * Suspend versioning on a standard (non-WORM) bucket.
+     * Existing object versions are preserved; new PUTs will no longer create versions.
+     */
+    public static function bucketVersioningSuspend(string $serverUuid, string $bucketName): void
+    {
+        static::dispatch($serverUuid, 'bucket_versioning_suspend', ['name' => $bucketName]);
+    }
+
     // -------------------------------------------------------------------------
     // WORM / Object Lock operations
     // -------------------------------------------------------------------------

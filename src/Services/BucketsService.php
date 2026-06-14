@@ -108,10 +108,14 @@ class BucketsService extends AbstractBucketsService
                 S3AgentCommandService::bucketCreate($server->uuid, [
                     'name'            => $model->name,
                     'bucket_id'       => $model->uuid,
-                    'versioning'      => $model->versioning ?? 'Suspended',
                     'lifecycle_rules' => $model->lifecycle_rules,
                     'audit_enabled'   => (bool) ($model->is_object_audit_enabled ?? false),
                 ]);
+
+                // Versioning must be enabled via a separate command after bucket creation.
+                if (($model->versioning ?? 'Suspended') === 'Enabled') {
+                    S3AgentCommandService::bucketVersioningEnable($server->uuid, $model->name);
+                }
             }
         } else {
             Log::warning('[BucketsService] No server found for bucket — skipping agent command', [
@@ -160,10 +164,19 @@ class BucketsService extends AbstractBucketsService
             } else {
                 S3AgentCommandService::bucketUpdate($server->uuid, [
                     'name'            => $model->name,
-                    'versioning'      => $model->versioning,
                     'lifecycle_rules' => $model->lifecycle_rules,
                     'audit_enabled'   => (bool) ($model->is_object_audit_enabled ?? false),
                 ]);
+
+                // Send explicit versioning command when the caller provided a versioning value.
+                // bucket_update does not toggle versioning; a dedicated command is required.
+                if (array_key_exists('versioning', $data)) {
+                    if ($model->versioning === 'Enabled') {
+                        S3AgentCommandService::bucketVersioningEnable($server->uuid, $model->name);
+                    } else {
+                        S3AgentCommandService::bucketVersioningSuspend($server->uuid, $model->name);
+                    }
+                }
             }
         }
 
