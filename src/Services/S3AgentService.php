@@ -155,7 +155,7 @@ class S3AgentService
 
             $bucket = Buckets::withoutGlobalScopes()
                 ->where('s3_server_id', $server->id)
-                ->where('name', $name)
+                ->where('bucket_name', $name)
                 ->whereNull('deleted_at')
                 ->first();
 

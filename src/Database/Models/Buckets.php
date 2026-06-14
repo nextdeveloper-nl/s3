@@ -25,6 +25,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $iam_account_id
  * @property integer $iam_user_id
  * @property string $name
+ * @property string $bucket_name
  * @property integer $replication_factor
  * @property $lifecycle_rules
  * @property string $versioning
@@ -63,6 +64,7 @@ class Buckets extends Model
             'iam_account_id',
             'iam_user_id',
             'name',
+            'bucket_name',
             'replication_factor',
             'lifecycle_rules',
             'versioning',
@@ -102,6 +104,7 @@ class Buckets extends Model
     's3_account_id' => 'integer',
     's3_server_id' => 'integer',
     'name' => 'string',
+    'bucket_name' => 'string',
     'replication_factor' => 'integer',
     'lifecycle_rules' => 'array',
     'versioning' => 'string',

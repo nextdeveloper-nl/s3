@@ -4,6 +4,7 @@ namespace NextDeveloper\S3\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\Accounts;
@@ -30,10 +31,16 @@ class BucketsService extends AbstractBucketsService
      */
     public static function create(array $data)
     {
-        // Validate bucket name: lowercase alphanumeric + hyphens only, 3–63 chars
-        if (!empty($data['name']) && !preg_match('/^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$/', $data['name'])) {
+        // Auto-generate bucket_name from name if not provided.
+        // bucket_name is the actual S3 identifier on SeaweedFS; name is the customer-facing label.
+        if (empty($data['bucket_name'])) {
+            $data['bucket_name'] = Str::slug($data['name'] ?? '');
+        }
+
+        // Validate bucket_name: lowercase alphanumeric + hyphens only, 3–63 chars
+        if (!preg_match('/^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$/', $data['bucket_name'])) {
             throw new NotAllowedException(
-                'Bucket name must be 3–63 lowercase alphanumeric characters or hyphens, and cannot start or end with a hyphen.'
+                'bucket_name must be 3–63 lowercase alphanumeric characters or hyphens, and cannot start or end with a hyphen.'
             );
         }
 
@@ -94,7 +101,7 @@ class BucketsService extends AbstractBucketsService
                     ?->uuid ?? '';
 
                 S3AgentCommandService::wormBucketCreate($server->uuid, [
-                    'name'             => $model->name,
+                    'name'             => $model->bucket_name,
                     'bucket_id'        => $model->uuid,
                     'owner_tenant_id'  => $ownerUuid,
                     'object_lock_mode' => $model->object_lock_mode ?? 'COMPLIANCE',
@@ -106,7 +113,7 @@ class BucketsService extends AbstractBucketsService
                 WormCommitmentsService::createFromBucket($model);
             } else {
                 S3AgentCommandService::bucketCreate($server->uuid, [
-                    'name'            => $model->name,
+                    'name'            => $model->bucket_name,
                     'bucket_id'       => $model->uuid,
                     'lifecycle_rules' => $model->lifecycle_rules,
                     'audit_enabled'   => (bool) ($model->is_object_audit_enabled ?? false),
@@ -114,7 +121,7 @@ class BucketsService extends AbstractBucketsService
 
                 // Versioning must be enabled via a separate command after bucket creation.
                 if (($model->versioning ?? 'Suspended') === 'Enabled') {
-                    S3AgentCommandService::bucketVersioningEnable($server->uuid, $model->name);
+                    S3AgentCommandService::bucketVersioningEnable($server->uuid, $model->bucket_name);
                 }
             }
         } else {
@@ -135,8 +142,8 @@ class BucketsService extends AbstractBucketsService
      */
     public static function update($id, array $data)
     {
-        // object_lock_enabled cannot be changed after creation — strip it silently.
-        unset($data['object_lock_enabled']);
+        // Both object_lock_enabled and bucket_name are immutable after creation — strip silently.
+        unset($data['object_lock_enabled'], $data['bucket_name']);
 
         $model = parent::update($id, $data);
 
@@ -150,7 +157,7 @@ class BucketsService extends AbstractBucketsService
 
                 // WORM bucket: relay retention policy changes to the agent.
                 S3AgentCommandService::wormBucketUpdate($server->uuid, [
-                    'name'             => $model->name,
+                    'name'             => $model->bucket_name,
                     'bucket_id'        => $model->uuid,
                     'owner_tenant_id'  => $ownerUuid,
                     'object_lock_mode' => $model->object_lock_mode,
@@ -163,7 +170,7 @@ class BucketsService extends AbstractBucketsService
                 WormCommitmentsService::supersede($model);
             } else {
                 S3AgentCommandService::bucketUpdate($server->uuid, [
-                    'name'            => $model->name,
+                    'name'            => $model->bucket_name,
                     'lifecycle_rules' => $model->lifecycle_rules,
                     'audit_enabled'   => (bool) ($model->is_object_audit_enabled ?? false),
                 ]);
@@ -172,9 +179,9 @@ class BucketsService extends AbstractBucketsService
                 // bucket_update does not toggle versioning; a dedicated command is required.
                 if (array_key_exists('versioning', $data)) {
                     if ($model->versioning === 'Enabled') {
-                        S3AgentCommandService::bucketVersioningEnable($server->uuid, $model->name);
+                        S3AgentCommandService::bucketVersioningEnable($server->uuid, $model->bucket_name);
                     } else {
-                        S3AgentCommandService::bucketVersioningSuspend($server->uuid, $model->name);
+                        S3AgentCommandService::bucketVersioningSuspend($server->uuid, $model->bucket_name);
                     }
                 }
             }
@@ -198,7 +205,7 @@ class BucketsService extends AbstractBucketsService
             );
         }
 
-        $name     = $model->name;
+        $name     = $model->bucket_name;
         $serverId = $model->s3_server_id;
         $isWorm   = !empty($model->object_lock_enabled);
 

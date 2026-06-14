@@ -17,8 +17,9 @@ class BucketsCreateRequest extends AbstractFormRequest
         return [
             // s3_account_id is resolved automatically from the current IAM account in BucketsService
             's3_server_id'        => 'required|exists:s3_servers,uuid|uuid',
-            // Lowercase alphanumeric + hyphens, 3-63 chars, no leading/trailing hyphen
-            'name'                => ['required', 'string', 'regex:/^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$/'],
+            'name'                => 'required|string',
+            // bucket_name is the actual S3 identifier; auto-generated from name if omitted
+            'bucket_name'         => ['nullable', 'string', 'regex:/^[a-z0-9][a-z0-9\-]{1,61}[a-z0-9]$/'],
             'replication_factor'  => 'nullable|integer|min:1|max:3',
             'lifecycle_rules'     => 'nullable',
             'versioning'          => 'nullable|string|in:Suspended,Enabled',

@@ -50,7 +50,7 @@ class S3AgentCommandService
 
         static::dispatch($serverUuid, 'full_sync', [
             'buckets'  => $buckets->map(fn ($b) => [
-                'name'                => $b->name,
+                'name'                => $b->bucket_name ?? $b->name,
                 'bucket_id'           => $b->uuid,
                 'owner_tenant_id'     => $accounts->get($b->s3_account_id)?->uuid ?? '',
                 'versioning'          => $b->versioning ?? 'Suspended',
