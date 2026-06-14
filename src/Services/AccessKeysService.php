@@ -39,6 +39,15 @@ class AccessKeysService extends AbstractAccessKeysService
         $data['secret_key_enc'] = S3KeyHelper::encrypt($pair['secret_key']);
         $data['status']         = $data['status'] ?? 'active';
 
+        // Normalize friendly role aliases to the agent-side canonical names.
+        $data['role'] = match ($data['role'] ?? 'readwrite') {
+            'full_access' => 'readwrite',
+            'read_only'   => 'readonly',
+            'write_only'  => 'writeonly',
+            'no_delete'   => 'nodelete',
+            default       => $data['role'] ?? 'readwrite',
+        };
+
         $model = parent::create($data);
 
         // Attach plaintext secret as a transient attribute — visible only now
