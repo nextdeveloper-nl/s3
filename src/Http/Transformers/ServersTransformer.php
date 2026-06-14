@@ -35,11 +35,6 @@ class ServersTransformer extends AbstractServersTransformer
             );
         }
 
-        // Pricing fields are appended after the cache lookup so they always
-        // reflect the live model value and are never stale from a cached entry.
-        $transformed['price_per_gb']       = $model->price_per_gb;
-        $transformed['common_currency_id'] = $model->common_currency_id;
-
         return $transformed;
     }
 }

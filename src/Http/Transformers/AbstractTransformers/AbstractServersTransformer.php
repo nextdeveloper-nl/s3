@@ -56,7 +56,7 @@ class AbstractServersTransformer extends AbstractTransformer
     {
                                                 $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
                                                             $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,
@@ -74,6 +74,8 @@ class AbstractServersTransformer extends AbstractTransformer
             'health_summary'  =>  $model->health_summary,
             'components'  =>  $model->components,
             'tags'  =>  $model->tags,
+            'price_per_gb'  =>  $model->price_per_gb,
+            'common_currency_id'  =>  $model->common_currency_id,
             'created_at'  =>  $model->created_at,
             'updated_at'  =>  $model->updated_at,
             'deleted_at'  =>  $model->deleted_at,
