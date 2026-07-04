@@ -213,9 +213,11 @@ agent — jobs are shown inside Agent Detail, not as a standalone top-level list
 `keep_last_n`, `keep_for_days`, `bandwidth_limit_mbps`, `is_enabled`.
 
 **Not editable (omit from the form entirely, don't just disable):**
-`s3_backup_agent_id`, `job_type`, `object_lock_enabled` — all three are stripped
-server-side if sent (`BackupJobsService::update()`), so showing them as editable
-would be misleading.
+`s3_backup_agent_id`, `s3_bucket_id`, `job_type`, `object_lock_enabled` — all
+four are stripped server-side if sent (`BackupJobsService::update()`), so
+showing them as editable would be misleading. See
+`../backup.agent/updates/2026-07-04-per-job-destination-bucket.md` for why
+`s3_bucket_id` exists at all.
 
 ### 5.4 Delete Job
 

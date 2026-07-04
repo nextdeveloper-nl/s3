@@ -89,6 +89,7 @@ the run record before the agent replies, since that path has a known start.
 | `registration.md` | Token issuance → agent register() → bootstrap payload |
 | `protocol.md` | Envelope, every command and event type, JSON examples |
 | `database.md` | `s3_backup_agents` / `s3_backup_jobs` / `s3_backup_job_runs` schema and lifecycle |
+| `updates/` | Dated notes for changes to this system after initial build, aimed at the panel and agent teams specifically — start here if you're checking whether a recent backend change affects work in progress |
 
 ## Key files
 
