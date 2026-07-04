@@ -103,7 +103,14 @@ class BackupAgentsService extends AbstractBackupAgentsService
                 'iam_account_id' => $agent->iam_account_id,
                 'iam_user_id'    => $agent->iam_user_id,
                 'role'           => 'readwrite',
-                'bucket_acls'    => [$bucket->bucket_name],
+                // Storage agent's s3.BucketACL expects an array of {bucket_id, permission}
+                // objects, not bare bucket names — "bucket_id" here is actually the bucket
+                // *name* (SeaweedFS IAM policies scope by name), confirmed against
+                // docs/storaged-design.md and s3.agent/docs/operations.md. A bare string
+                // array gets rejected by the agent with a JSON decode error.
+                'bucket_acls'    => [
+                    ['bucket_id' => $bucket->bucket_name, 'permission' => 'rw'],
+                ],
             ]);
 
             $agent->update(array_merge($machineInfo, [
