@@ -12,6 +12,13 @@ CREATE TABLE s3_backup_jobs (
     iam_account_id       bigint       NOT NULL REFERENCES iam_accounts(id),
     iam_user_id          bigint       NOT NULL REFERENCES iam_users(id),
 
+    -- Destination bucket for this job's snapshots. Defaults to the agent's own
+    -- bucket (s3_backup_agents.s3_bucket_id) if not set explicitly; a job with
+    -- object_lock_enabled=true gets its own dedicated WORM bucket instead,
+    -- since Object Lock is a bucket-level setting the agent's default bucket
+    -- may not have. Immutable after creation, like s3_backup_agent_id.
+    s3_bucket_id         bigint       NOT NULL REFERENCES s3_buckets(id),
+
     name                 text         NOT NULL,
     job_type             text         NOT NULL, -- files | script
 
@@ -43,5 +50,15 @@ CREATE TABLE s3_backup_jobs (
 
 CREATE UNIQUE INDEX ON s3_backup_jobs (uuid);
 CREATE        INDEX ON s3_backup_jobs (s3_backup_agent_id);
+CREATE        INDEX ON s3_backup_jobs (s3_bucket_id);
 CREATE        INDEX ON s3_backup_jobs (iam_account_id);
 CREATE        INDEX ON s3_backup_jobs (is_enabled) WHERE is_enabled = true;
+
+-- ALTER statement for the table already created from the original version of
+-- this file (see docs/backup.agent/database.md for the backfill note):
+--
+-- ALTER TABLE s3_backup_jobs ADD COLUMN s3_bucket_id bigint REFERENCES s3_buckets(id);
+-- UPDATE s3_backup_jobs j SET s3_bucket_id = a.s3_bucket_id
+--   FROM s3_backup_agents a WHERE a.id = j.s3_backup_agent_id AND j.s3_bucket_id IS NULL;
+-- ALTER TABLE s3_backup_jobs ALTER COLUMN s3_bucket_id SET NOT NULL;
+-- CREATE INDEX ON s3_backup_jobs (s3_bucket_id);

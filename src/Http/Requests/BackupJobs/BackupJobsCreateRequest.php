@@ -16,6 +16,9 @@ class BackupJobsCreateRequest extends AbstractFormRequest
     {
         return [
             's3_backup_agent_id'   => 'required|exists:s3_backup_agents,uuid|uuid',
+            // optional: defaults to the agent's own bucket, or a freshly-provisioned WORM
+            // bucket when object_lock_enabled=true — see BackupJobsService::resolveBucketForJob()
+            's3_bucket_id'         => 'nullable|exists:s3_buckets,uuid|uuid',
             'name'                 => 'required|string',
             'job_type'             => 'required|string|in:files,script',
             // files job: paths to snapshot. script job: paths the script is expected to write to.

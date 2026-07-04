@@ -40,13 +40,14 @@ A named backup job belonging to one agent.
 
 | Column | Notes |
 |---|---|
+| `s3_bucket_id` | **Destination bucket for this job's snapshots.** Immutable after creation. Resolved in `BackupJobsService::resolveBucketForJob()`: an explicit value is validated to belong to the same account; otherwise defaults to the agent's own `s3_backup_agents.s3_bucket_id`, unless `object_lock_enabled = true`, in which case a brand-new dedicated WORM bucket is provisioned instead (see below). |
 | `job_type` | `files` (snapshot `source_paths` directly) or `script` (run `pre_script` first, snapshot its output). |
 | `source_paths` | `text[]` — paths to snapshot (files job) or paths the script is expected to write to (script job). |
 | `pre_script` | Required (enforced in `BackupJobsService::assertScriptHasPreScript()`) when `job_type = script`. |
 | `schedule` | Cron expression, evaluated **agent-side** — see `docs/backup.agent/overview.md` for why. |
 | `keep_last_n` / `keep_for_days` | Retention — same shape as `iaas_backup_retention_policies` in the (unrelated) hypervisor-level VM backup system. |
-| `object_lock_enabled` | Routes the target bucket through the existing `s3_worm_commitments` mechanism. Immutable after creation — same rule as `s3_buckets.object_lock_enabled`, stripped in `BackupJobsService::update()`. |
-| `s3_backup_agent_id`, `job_type` | Both immutable after creation — a job doesn't change which machine it lives on, and switching `files`↔`script` changes what `source_paths` even means. |
+| `object_lock_enabled` | At create time, triggers provisioning a dedicated bucket with Object Lock enabled (routing through the existing `s3_worm_commitments` mechanism) instead of using the agent's shared default bucket. Immutable after creation — same rule as `s3_buckets.object_lock_enabled`, stripped in `BackupJobsService::update()`. |
+| `s3_backup_agent_id`, `s3_bucket_id`, `job_type` | All three immutable after creation — a job doesn't change which machine it lives on or where its existing snapshots already are, and switching `files`↔`script` changes what `source_paths` even means. |
 
 Any create/update/delete triggers a `full_sync` to the owning agent
 (`BackupJobsService::syncAgent()`) — jobs are plain config, so a full resync on

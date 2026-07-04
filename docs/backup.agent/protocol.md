@@ -57,10 +57,20 @@ Each item in `payload.jobs` (see `BackupJobsService::buildFullSyncPayload()`):
   "schedule": "0 2 * * *",
   "keep_last_n": 14,
   "keep_for_days": null,
-  "bandwidth_limit_mbps": 50
+  "bandwidth_limit_mbps": 50,
+  "bucket_name": "backup-agent-a1b2c3d4",
+  "object_lock_enabled": false
 }
 ```
 
+- `bucket_name` — **where this job's Kopia snapshots go.** Most jobs share the
+  agent's own bucket (provisioned once at registration); a job created with
+  `object_lock_enabled: true` gets its own dedicated WORM bucket instead, since
+  Object Lock is a bucket-level setting that can't retroactively apply to
+  whatever the agent's default bucket already holds. See
+  `BackupJobsService::resolveBucketForJob()`. The agent points its Kopia
+  repository client at this bucket per job — never assume "the" bucket from
+  registration is the only one a given agent will ever see.
 - `job_type: "files"` — snapshot `source_paths` directly.
 - `job_type: "script"` — run `pre_script` first (respecting `script_timeout_s`); a
   non-zero exit or missing/empty output must fail the run *before* the agent ever

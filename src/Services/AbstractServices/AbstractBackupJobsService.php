@@ -155,6 +155,12 @@ class AbstractBackupJobsService
                 $data['s3_backup_agent_id']
             );
         }
+        if (array_key_exists('s3_bucket_id', $data)) {
+            $data['s3_bucket_id'] = DatabaseHelper::uuidToId(
+                '\NextDeveloper\S3\Database\Models\Buckets',
+                $data['s3_bucket_id']
+            );
+        }
         if (array_key_exists('iam_account_id', $data)) {
             $data['iam_account_id'] = DatabaseHelper::uuidToId(
                 '\NextDeveloper\IAM\Database\Models\Accounts',
@@ -209,6 +215,12 @@ class AbstractBackupJobsService
             $data['s3_backup_agent_id'] = DatabaseHelper::uuidToId(
                 '\NextDeveloper\S3\Database\Models\BackupAgents',
                 $data['s3_backup_agent_id']
+            );
+        }
+        if (array_key_exists('s3_bucket_id', $data)) {
+            $data['s3_bucket_id'] = DatabaseHelper::uuidToId(
+                '\NextDeveloper\S3\Database\Models\Buckets',
+                $data['s3_bucket_id']
             );
         }
         if (array_key_exists('iam_account_id', $data)) {

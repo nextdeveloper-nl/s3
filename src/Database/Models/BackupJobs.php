@@ -26,6 +26,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $id
  * @property string $uuid
  * @property integer $s3_backup_agent_id
+ * @property integer $s3_bucket_id
  * @property integer $iam_account_id
  * @property integer $iam_user_id
  * @property string $name
@@ -61,6 +62,7 @@ class BackupJobs extends Model
 
     protected $fillable = [
             's3_backup_agent_id',
+            's3_bucket_id',
             'iam_account_id',
             'iam_user_id',
             'name',
@@ -100,6 +102,7 @@ class BackupJobs extends Model
     protected $casts = [
     'id' => 'integer',
     's3_backup_agent_id' => 'integer',
+    's3_bucket_id' => 'integer',
     'name' => 'string',
     'job_type' => 'string',
     'source_paths' => \NextDeveloper\Commons\Database\Casts\TextArray::class,
@@ -179,6 +182,11 @@ class BackupJobs extends Model
     public function agent() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\BackupAgents::class, 's3_backup_agent_id');
+    }
+
+    public function bucket() : \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\NextDeveloper\S3\Database\Models\Buckets::class, 's3_bucket_id');
     }
 
     public function runs() : \Illuminate\Database\Eloquent\Relations\HasMany

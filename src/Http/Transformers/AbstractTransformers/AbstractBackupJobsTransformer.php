@@ -55,6 +55,7 @@ class AbstractBackupJobsTransformer extends AbstractTransformer
     public function transform(BackupJobs $model)
     {
         $s3BackupAgentId = \NextDeveloper\S3\Database\Models\BackupAgents::where('id', $model->s3_backup_agent_id)->first();
+        $s3BucketId = \NextDeveloper\S3\Database\Models\Buckets::where('id', $model->s3_bucket_id)->first();
         $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
         $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
 
@@ -62,6 +63,7 @@ class AbstractBackupJobsTransformer extends AbstractTransformer
             [
             'id'  =>  $model->uuid,
             's3_backup_agent_id'  =>  $s3BackupAgentId ? $s3BackupAgentId->uuid : null,
+            's3_bucket_id'  =>  $s3BucketId ? $s3BucketId->uuid : null,
             'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
             'name'  =>  $model->name,

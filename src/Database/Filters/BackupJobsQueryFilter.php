@@ -78,6 +78,21 @@ class BackupJobsQueryFilter extends AbstractQueryFilter
         return $this->s3BackupAgentId($value);
     }
 
+    public function s3BucketId($value)
+    {
+        $bucket = \NextDeveloper\S3\Database\Models\Buckets::where('uuid', $value)->first();
+
+        if($bucket) {
+            return $this->builder->where('s3_bucket_id', '=', $bucket->id);
+        }
+    }
+
+    //  This is an alias function of s3BucketId
+    public function s3_bucket_id($value)
+    {
+        return $this->s3BucketId($value);
+    }
+
     public function iamAccountId($value)
     {
         $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
