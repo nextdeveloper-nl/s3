@@ -76,6 +76,24 @@ class S3AdminRole extends AbstractRole implements IAuthorizationRole
             's3_webhooks:update',
             's3_webhooks:delete',
 
+            // Backup agents — cross-account administration
+            's3_backup_agents:read',
+            's3_backup_agents:create',
+            's3_backup_agents:update',
+            's3_backup_agents:delete',
+
+            // Backup jobs — cross-account administration
+            's3_backup_jobs:read',
+            's3_backup_jobs:create',
+            's3_backup_jobs:update',
+            's3_backup_jobs:delete',
+
+            // Backup job runs — admin gets full CRUD for support/cleanup, same asymmetry as audit_logs/webhook_deliveries
+            's3_backup_job_runs:read',
+            's3_backup_job_runs:create',
+            's3_backup_job_runs:update',
+            's3_backup_job_runs:delete',
+
             // Webhook deliveries
             's3_webhook_deliveries:read',
             's3_webhook_deliveries:create',

@@ -80,6 +80,21 @@ class S3ManagerRole extends AbstractRole implements IAuthorizationRole
             's3_webhooks:update',
             's3_webhooks:delete',
 
+            // Backup agents — full access within the account
+            's3_backup_agents:read',
+            's3_backup_agents:create',
+            's3_backup_agents:update',
+            's3_backup_agents:delete',
+
+            // Backup jobs — full access within the account
+            's3_backup_jobs:read',
+            's3_backup_jobs:create',
+            's3_backup_jobs:update',
+            's3_backup_jobs:delete',
+
+            // Backup job runs — read-only; written by the agent/platform, never by a user form
+            's3_backup_job_runs:read',
+
             // Webhook deliveries — read-only
             's3_webhook_deliveries:read',
 
