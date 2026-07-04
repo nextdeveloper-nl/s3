@@ -26,4 +26,11 @@ return [
         'price_per_gb_mo'  => env('S3_WORM_PRICE_PER_GB_MO', 0.023),
         'purge_grace_days' => env('S3_WORM_PURGE_GRACE_DAYS', 30),
     ],
+
+    // backup.agent settings
+    'backup' => [
+        // Minutes past a job's expected run time before it's considered missed —
+        // see BackupJobRunsService::getMissedJobs().
+        'missed_grace_minutes' => env('S3_BACKUP_MISSED_GRACE_MINUTES', 30),
+    ],
 ];

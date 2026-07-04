@@ -1,0 +1,188 @@
+<?php
+
+namespace NextDeveloper\S3\Database\Models;
+
+use Illuminate\Database\Eloquent\SoftDeletes;
+use NextDeveloper\Commons\Database\Traits\HasStates;
+use Illuminate\Database\Eloquent\Model;
+use NextDeveloper\Commons\Database\Traits\Filterable;
+use NextDeveloper\S3\Database\Observers\BackupAgentsObserver;
+use NextDeveloper\Commons\Database\Traits\UuidId;
+use NextDeveloper\Commons\Database\Traits\HasObject;
+use NextDeveloper\Commons\Common\Cache\Traits\CleanCache;
+use NextDeveloper\Commons\Database\Traits\Taggable;
+use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
+
+/**
+ * BackupAgents model.
+ *
+ * Member table for agent_type = 'backup' in the shared NATS agent protocol
+ * (see docs/backup.agent/protocol.md). One row per registered backup.agent
+ * install on a customer machine (Windows/Linux/Mac — any machine, not tied
+ * to the IAAS VM fleet).
+ *
+ * @package  NextDeveloper\S3\Database\Models
+ * @property integer $id
+ * @property string $uuid
+ * @property integer $iam_account_id
+ * @property integer $iam_user_id
+ * @property string $hostname
+ * @property string $os
+ * @property string $arch
+ * @property string $machine_fingerprint
+ * @property string $agent_api_key
+ * @property string $agent_version
+ * @property string $status
+ * @property string $registration_token
+ * @property \Carbon\Carbon $registration_token_expires_at
+ * @property integer $s3_bucket_id
+ * @property \Carbon\Carbon $last_seen_at
+ * @property string $health
+ * @property array $tags
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ * @property \Carbon\Carbon $deleted_at
+ */
+class BackupAgents extends Model
+{
+    use Filterable, UuidId, CleanCache, Taggable, HasStates, RunAsAdministrator, HasObject;
+    use SoftDeletes;
+
+    public $timestamps = true;
+
+    protected $table = 's3_backup_agents';
+
+    /**
+     @var array
+     */
+    protected $guarded = [];
+
+    protected $fillable = [
+            'iam_account_id',
+            'iam_user_id',
+            'hostname',
+            'os',
+            'arch',
+            'machine_fingerprint',
+            'agent_api_key',
+            'agent_version',
+            'status',
+            'registration_token',
+            'registration_token_expires_at',
+            's3_bucket_id',
+            'last_seen_at',
+            'health',
+            'tags',
+    ];
+
+    /**
+      Here we have the fulltext fields. We can use these for fulltext search if enabled.
+     */
+    protected $fullTextFields = [
+
+    ];
+
+    /**
+     @var array
+     */
+    protected $appends = [
+
+    ];
+
+    /**
+     We are casting fields to objects so that we can work on them better
+     *
+     @var array
+     */
+    protected $casts = [
+    'id' => 'integer',
+    'hostname' => 'string',
+    'os' => 'string',
+    'arch' => 'string',
+    'machine_fingerprint' => 'string',
+    'agent_api_key' => 'string',
+    'agent_version' => 'string',
+    'status' => 'string',
+    'registration_token' => 'string',
+    'registration_token_expires_at' => 'datetime',
+    's3_bucket_id' => 'integer',
+    'last_seen_at' => 'datetime',
+    'health' => 'string',
+    'tags' => \NextDeveloper\Commons\Database\Casts\TextArray::class,
+    'created_at' => 'datetime',
+    'updated_at' => 'datetime',
+    'deleted_at' => 'datetime',
+    ];
+
+    /**
+     We are casting data fields.
+     *
+     @var array
+     */
+    protected $dates = [
+    'registration_token_expires_at',
+    'last_seen_at',
+    'created_at',
+    'updated_at',
+    'deleted_at',
+    ];
+
+    /**
+     @var array
+     */
+    protected $with = [
+
+    ];
+
+    /**
+     @var int
+     */
+    protected $perPage = 20;
+
+    /**
+     @return void
+     */
+    public static function boot()
+    {
+        parent::boot();
+
+        //  We create and add Observer even if we wont use it.
+        parent::observe(BackupAgentsObserver::class);
+
+        self::registerScopes();
+    }
+
+    public static function registerScopes()
+    {
+        $globalScopes = config('s3.scopes.global');
+        $modelScopes = config('s3.scopes.s3_backup_agents');
+
+        if(!$modelScopes) { $modelScopes = [];
+        }
+        if (!$globalScopes) { $globalScopes = [];
+        }
+
+        $scopes = array_merge(
+            $globalScopes,
+            $modelScopes
+        );
+
+        if($scopes) {
+            foreach ($scopes as $scope) {
+                static::addGlobalScope(app($scope));
+            }
+        }
+    }
+
+    public function bucket() : \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\NextDeveloper\S3\Database\Models\Buckets::class, 's3_bucket_id');
+    }
+
+    public function jobs() : \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\NextDeveloper\S3\Database\Models\BackupJobs::class);
+    }
+
+    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+}

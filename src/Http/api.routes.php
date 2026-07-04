@@ -469,7 +469,74 @@ Route::prefix('worm-expiring-perspective')->group(
     }
 );
 
+Route::prefix('backup-agents')->group(
+    function () {
+        Route::get('/', 'BackupAgents\BackupAgentsController@index');
+        Route::get('/actions', 'BackupAgents\BackupAgentsController@getActions');
+
+        Route::get('{s3_backup_agents}/tags ', 'BackupAgents\BackupAgentsController@tags');
+        Route::post('{s3_backup_agents}/tags ', 'BackupAgents\BackupAgentsController@saveTags');
+        Route::get('{s3_backup_agents}/addresses ', 'BackupAgents\BackupAgentsController@addresses');
+        Route::post('{s3_backup_agents}/addresses ', 'BackupAgents\BackupAgentsController@saveAddresses');
+
+        Route::get('/{s3_backup_agents}/{subObjects}', 'BackupAgents\BackupAgentsController@relatedObjects');
+        Route::get('/{s3_backup_agents}', 'BackupAgents\BackupAgentsController@show');
+
+        // POST /s3/backup-agents/ issues a registration token — it does not create
+        // an active agent. See BackupAgentsService::create().
+        Route::post('/', 'BackupAgents\BackupAgentsController@store');
+        Route::post('/{s3_backup_agents}/do/{action}', 'BackupAgents\BackupAgentsController@doAction');
+
+        Route::patch('/{s3_backup_agents}', 'BackupAgents\BackupAgentsController@update');
+        Route::delete('/{s3_backup_agents}', 'BackupAgents\BackupAgentsController@destroy');
+    }
+);
+
+Route::prefix('backup-jobs')->group(
+    function () {
+        Route::get('/', 'BackupJobs\BackupJobsController@index');
+        Route::get('/actions', 'BackupJobs\BackupJobsController@getActions');
+
+        Route::get('{s3_backup_jobs}/tags ', 'BackupJobs\BackupJobsController@tags');
+        Route::post('{s3_backup_jobs}/tags ', 'BackupJobs\BackupJobsController@saveTags');
+        Route::get('{s3_backup_jobs}/addresses ', 'BackupJobs\BackupJobsController@addresses');
+        Route::post('{s3_backup_jobs}/addresses ', 'BackupJobs\BackupJobsController@saveAddresses');
+
+        Route::get('/{s3_backup_jobs}/{subObjects}', 'BackupJobs\BackupJobsController@relatedObjects');
+        Route::get('/{s3_backup_jobs}', 'BackupJobs\BackupJobsController@show');
+
+        Route::post('/', 'BackupJobs\BackupJobsController@store');
+        Route::post('/{s3_backup_jobs}/do/{action}', 'BackupJobs\BackupJobsController@doAction');
+
+        Route::patch('/{s3_backup_jobs}', 'BackupJobs\BackupJobsController@update');
+        Route::delete('/{s3_backup_jobs}', 'BackupJobs\BackupJobsController@destroy');
+    }
+);
+
+Route::prefix('backup-job-runs')->group(
+    function () {
+        // Read-only — see BackupJobRunsController's class docblock.
+        Route::get('/', 'BackupJobRuns\BackupJobRunsController@index');
+        Route::get('/{s3_backup_job_runs}/{subObjects}', 'BackupJobRuns\BackupJobRunsController@relatedObjects');
+        Route::get('/{s3_backup_job_runs}', 'BackupJobRuns\BackupJobRunsController@show');
+    }
+);
+
 // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+Route::prefix('backup-agents')->group(
+    function () {
+        // POST (not GET) so it doesn't collide with the {subObjects} wildcard route
+        // registered above, same reasoning as access-keys/reveal below.
+        Route::post('/{s3_backup_agents}/revoke', 'BackupAgents\BackupAgentsController@revoke');
+    }
+);
+
+Route::prefix('backup-jobs')->group(
+    function () {
+        Route::post('/{s3_backup_jobs}/run-now', 'BackupJobs\BackupJobsController@runNow');
+    }
+);
 
 Route::prefix('access-keys')->group(
     function () {

@@ -197,3 +197,7 @@ SeaweedFS and NFS data must **never share a filesystem mount point**.
 | `docs/s3-database-schema-design-v1.1.md` | Complete PostgreSQL schema (current version) |
 | `docs/s3-database-schema-design.md` | v1.0 schema (historical reference) |
 | `docs/s3-market-and-support-analysis.md` | Market pain points, expected support categories, competitive positioning |
+| `docs/backup.agent/overview.md` | backup.agent architecture: Kopia engine, agent-side scheduling, why it plugs into the existing NATS agent protocol |
+| `docs/backup.agent/registration.md` | Token issuance → agent register() → NATS credential bootstrap handshake |
+| `docs/backup.agent/protocol.md` | agent_type=backup envelope, commands, and events (full_sync, run_job_now, job_run, etc.) |
+| `docs/backup.agent/database.md` | `s3_backup_agents` / `s3_backup_jobs` / `s3_backup_job_runs` schema and lifecycle |

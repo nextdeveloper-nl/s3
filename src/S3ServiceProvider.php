@@ -80,6 +80,7 @@ class S3ServiceProvider extends AbstractServiceProvider
                 \NextDeveloper\S3\Console\Commands\ParseBandwidthCommand::class,
                 \NextDeveloper\S3\Console\Commands\CleanupMultipartCommand::class,
                 \NextDeveloper\S3\Console\Commands\WormLifecycleCommand::class,
+                \NextDeveloper\S3\Console\Commands\CheckMissedBackupsCommand::class,
             ]);
         }
     }
@@ -124,6 +125,12 @@ class S3ServiceProvider extends AbstractServiceProvider
             $schedule->job(new \NextDeveloper\S3\Jobs\WormLifecycleJob())
                 ->dailyAt('02:00')
                 ->name('s3:worm-lifecycle')
+                ->withoutOverlapping();
+
+            // Missed backup-job detection — every 15 minutes
+            $schedule->job(new \NextDeveloper\S3\Jobs\CheckMissedBackupsJob())
+                ->everyFifteenMinutes()
+                ->name('s3:backup-agents-check-missed')
                 ->withoutOverlapping();
         });
     }

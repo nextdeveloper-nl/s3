@@ -21,6 +21,11 @@ The UI should render both views. Use `*-perspective` endpoints for customer-faci
 
 ## 2. Navigation Structure
 
+> **Backup Agents** (registration, jobs, run history) has its own companion spec —
+> see [`backup-agent-ui-specification.md`](backup-agent-ui-specification.md) —
+> since it's a large enough feature area to document separately. It sits in this
+> same nav tree, between Access Keys and Usage & Billing.
+
 ```
 S3 Module
 ├── Dashboard (account stats + quick actions)
@@ -32,6 +37,7 @@ S3 Module
 ├── Access Keys
 │   ├── List
 │   └── Create
+├── Backup Agents (see backup-agent-ui-specification.md)
 ├── Usage & Billing
 │   ├── Bandwidth (monthly)
 │   ├── Deposit Ledger (WORM billing)
