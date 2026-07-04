@@ -48,11 +48,19 @@ class AbstractBackupAgentsTransformer extends AbstractTransformer
     ];
 
     /**
-     * agent_api_key and registration_token are deliberately excluded — unlike
-     * s3_servers (admin-only infrastructure), this is a customer-facing resource
-     * read via normal list/show calls, so the live NATS credential must not be
-     * echoed back on every request. They're returned once, directly from
+     * agent_api_key is deliberately excluded — unlike s3_servers (admin-only
+     * infrastructure), this is a customer-facing resource read via normal
+     * list/show calls, so the live, never-expiring NATS credential must not be
+     * echoed back on every request. It's returned once, directly from
      * BackupAgentsService::register(), never through this transformer.
+     *
+     * registration_token IS included, unlike agent_api_key — it's single-use
+     * and short-lived (1 hour), and BackupAgentsService::register() nulls it
+     * out the instant it's consumed, so it only ever appears here for the
+     * brief pending window right after BackupAgentsService::create() issues
+     * it (which is the whole point: the store() response is how the customer
+     * gets the token to put in their install command — see
+     * docs/backup.agent/registration.md).
      *
      * @param BackupAgents $model
      *
@@ -76,6 +84,7 @@ class AbstractBackupAgentsTransformer extends AbstractTransformer
             'machine_fingerprint'  =>  $model->machine_fingerprint,
             'agent_version'  =>  $model->agent_version,
             'status'  =>  $model->status,
+            'registration_token'  =>  $model->registration_token,
             'registration_token_expires_at'  =>  $model->registration_token_expires_at,
             'last_seen_at'  =>  $model->last_seen_at,
             'health'  =>  $model->health,
