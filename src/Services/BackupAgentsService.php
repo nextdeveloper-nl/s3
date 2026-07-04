@@ -9,6 +9,7 @@ use NextDeveloper\Commons\Helpers\DatabaseHelper;
 use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\BackupAgents;
 use NextDeveloper\S3\Database\Models\Buckets;
+use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Services\AbstractServices\AbstractBackupAgentsService;
 
 /**
@@ -127,11 +128,8 @@ class BackupAgentsService extends AbstractBackupAgentsService
                 'port' => config('events.nats.port'),
             ],
             'bucket' => [
-                'name' => $bucket->bucket_name,
-                // TODO: confirm the real public S3 endpoint convention for this server
-                // (see vendor/nextdeveloper/s3/docs/client-setup-guide.md §1) — hostname
-                // is the closest field on Servers today but may need a scheme/domain wrapper.
-                'endpoint' => $bucket->servers?->hostname,
+                'name'     => $bucket->bucket_name,
+                'endpoint' => static::bucketEndpoint($bucket),
             ],
             'access_key' => [
                 'access_key' => $accessKey->access_key,
@@ -179,6 +177,27 @@ class BackupAgentsService extends AbstractBackupAgentsService
         }
 
         return $bucket;
+    }
+
+    /**
+     * Builds the public HTTPS endpoint the agent's Kopia client connects to.
+     *
+     * Deliberately queries Servers directly with withoutGlobalScopes() rather
+     * than going through Buckets::servers() — that relation runs its own
+     * fresh query against the Servers model, which carries the IAM
+     * AuthorizationScope global scope. register() has no logged-in user (it's
+     * the token-only public endpoint), so that scope would silently filter
+     * the result to null here even with a correct foreign key.
+     *
+     * https://{hostname} matches the convention the panel's own
+     * S3BucketConnectionInfo.vue already uses to build a usable endpoint from
+     * this same Servers.hostname field.
+     */
+    private static function bucketEndpoint(Buckets $bucket): ?string
+    {
+        $server = Servers::withoutGlobalScopes()->find($bucket->s3_server_id);
+
+        return $server?->hostname ? 'https://' . $server->hostname : null;
     }
 
     /**

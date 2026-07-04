@@ -183,12 +183,16 @@ class Buckets extends Model
 
     public function accounts() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\NextDeveloper\S3\Database\Models\Accounts::class);
+        // Explicit FK: Laravel's default inference from the relation method name
+        // ("accounts" -> "accounts_id") doesn't match the real column, s3_account_id.
+        return $this->belongsTo(\NextDeveloper\S3\Database\Models\Accounts::class, 's3_account_id');
     }
-    
+
     public function servers() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
-        return $this->belongsTo(\NextDeveloper\S3\Database\Models\Servers::class);
+        // Explicit FK: Laravel's default inference from the relation method name
+        // ("servers" -> "servers_id") doesn't match the real column, s3_server_id.
+        return $this->belongsTo(\NextDeveloper\S3\Database\Models\Servers::class, 's3_server_id');
     }
     
     public function webhooks() : \Illuminate\Database\Eloquent\Relations\HasMany
