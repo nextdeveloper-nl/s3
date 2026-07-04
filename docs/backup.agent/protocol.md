@@ -64,10 +64,12 @@ Each item in `payload.jobs` (see `BackupJobsService::buildFullSyncPayload()`):
 ```
 
 - `bucket_name` — **where this job's Kopia snapshots go.** Most jobs share the
-  agent's own bucket (provisioned once at registration); a job created with
-  `object_lock_enabled: true` gets its own dedicated WORM bucket instead, since
-  Object Lock is a bucket-level setting that can't retroactively apply to
-  whatever the agent's default bucket already holds. See
+  agent's own bucket (chosen by the customer when the registration token was
+  issued — never auto-created); a job with `object_lock_enabled: true` must
+  point at a *different*, pre-existing bucket that already has Object Lock
+  enabled, since that's a bucket-level setting that can't retroactively apply
+  to whatever the agent's default bucket already holds, and we never create
+  buckets on the customer's behalf. See
   `BackupJobsService::resolveBucketForJob()`. The agent points its Kopia
   repository client at this bucket per job — never assume "the" bucket from
   registration is the only one a given agent will ever see.

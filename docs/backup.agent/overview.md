@@ -28,10 +28,11 @@ Given that, three decisions shape everything below:
 - **Engine: Kopia**, embedded as a Go library. Content-defined chunking, dedup,
   encryption, incremental snapshots, and a native S3-compatible repository
   backend — all things a from-scratch engine would have to re-derive.
-- **Target: our own S3 service only.** Every agent gets one dedicated bucket +
-  scoped IAM key, so we can apply the WORM/Object Lock immutability and quota
-  infrastructure that already exists in this package, rather than supporting
-  arbitrary external S3 endpoints.
+- **Target: our own S3 service only.** Every agent is registered against a
+  bucket the customer already owns (created via the normal Buckets API — we
+  never provision one on their behalf), so we can apply the WORM/Object Lock
+  immutability and quota infrastructure that already exists in this package,
+  rather than supporting arbitrary external S3 endpoints.
 - **Missed backups are surfaced, not inferred.** A job's outcome is recorded
   explicitly in `s3_backup_job_runs` every time it runs; a job that stops
   reporting completions gets escalated by `s3:backup-agents-check-missed`
@@ -95,7 +96,7 @@ the run record before the agent replies, since that path has a known start.
 
 | File | Purpose |
 |---|---|
-| `src/Services/BackupAgentsService.php` | Registration token issuance, register(), revoke(), bucket+key provisioning |
+| `src/Services/BackupAgentsService.php` | Registration token issuance (requires an existing bucket), register(), revoke() |
 | `src/Services/BackupJobsService.php` | Job CRUD, full_sync payload assembly |
 | `src/Services/BackupJobRunsService.php` | Run lifecycle (start/complete/fail/record), missed-job detection |
 | `src/Services/BackupAgentCommandService.php` | Outbound NATS command dispatch |

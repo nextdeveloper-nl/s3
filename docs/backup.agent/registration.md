@@ -20,12 +20,23 @@ shipped with a REST/SSE design, then explicitly moved to NATS in v0.2.0).
 
 ```
 POST /s3/backup-agents/
+{
+  "s3_bucket_id": "<uuid of an existing bucket>"
+}
 ```
 
 IAM-authenticated, standard dashboard/API call. Maps to
 `BackupAgentsService::create()`, which does **not** create an active agent — it
 creates a `pending` row with a one-time `registration_token` (48-char random,
 URL-safe) and a 1-hour expiry.
+
+`s3_bucket_id` is **required** and must reference a bucket the customer already
+owns (created via the normal Buckets API beforehand). backup.agent never
+provisions a bucket on the customer's behalf — this is deliberate: bucket
+creation is a billable, visible action the customer takes explicitly, and it
+means a WORM (Object Lock) bucket the customer wants to use can only ever be
+one they created and configured themselves, since Object Lock can't be added
+to a bucket after the fact anyway.
 
 Response: the pending `BackupAgents` record, including the `registration_token`
 the customer copies into the install command on their machine (e.g.
@@ -56,15 +67,12 @@ Maps to `BackupAgentsService::register()`, which:
 
 1. Looks up the `pending` row by `registration_token`, rejects if not found or
    expired.
-2. Resolves (or auto-provisions, first time) the S3 tenant `Accounts` row for the
-   agent's owning IAM account — done explicitly from the pending row's own
-   `iam_account_id`/`iam_user_id`, never via `UserHelper::currentAccount()`/`me()`,
-   which have nothing to resolve outside an authenticated request.
-3. Picks a storage server and creates a dedicated bucket
-   (`backup-agent-{short-uuid}`) via the existing `BucketsService::create()`.
-4. Creates a scoped IAM access key for that one bucket via the existing
+2. Loads the bucket that was already assigned at token-issuance time
+   (`agent.s3_bucket_id`) — no account/server resolution needed here, since
+   the bucket (and therefore its S3 account) already exists.
+3. Creates a scoped IAM access key for that bucket via the existing
    `AccessKeysService::create()`.
-5. Generates the NATS credential (`agent_api_key`, same 48-char random format),
+4. Generates the NATS credential (`agent_api_key`, same 48-char random format),
    flips `status` to `active`, clears the token.
 
 Response — this **is** the agent's entire bootstrap config, written to its local

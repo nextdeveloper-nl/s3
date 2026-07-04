@@ -102,15 +102,23 @@ The UI's job is only to display that command (§4.2).
 
 ### 4.2 Register New Agent
 
-**Endpoint:** `POST /s3/backup-agents` (body: `{}` — no required fields; see
-`BackupAgentsCreateRequest`, `tags` is the only optional field)
+**Endpoint:** `POST /s3/backup-agents` (body: `{ "s3_bucket_id": "<uuid>" }` —
+`s3_bucket_id` is **required**; `tags` is the only other, optional field)
 
 This does **not** create a working agent. It creates a `pending` row with a
-one-time `registration_token`. Model this exactly like the existing Access Key
-creation flow (`S3AccessKeyCreateForm.vue` + `S3SecretKeyModal.vue`) — a form
-with effectively nothing to fill in, followed by a **one-time reveal modal**,
-because `registration_token` behaves exactly like a secret key: shown once, gone
-from the API after `register()` consumes it.
+one-time `registration_token`. Model the token-reveal part exactly like the
+existing Access Key creation flow (`S3AccessKeyCreateForm.vue` +
+`S3SecretKeyModal.vue`) — a **one-time reveal modal**, because
+`registration_token` behaves exactly like a secret key: shown once, gone from
+the API after `register()` consumes it.
+
+**Bucket picker is required, not optional.** backup.agent never creates a
+bucket on the customer's behalf — the form must include a bucket select
+(reuse the same bucket-fetching pattern `S3AccessKeyCreateForm.vue` uses for
+its account picker, just targeting `GET /s3/buckets-perspective` instead).
+If the customer has no buckets yet, don't silently block the form — show an
+inline empty-state with a link/button to the bucket create flow (§5.2 of
+`ui-specification.md`) first, since a bucket is now a hard prerequisite.
 
 **Modal content after creation:**
 
@@ -187,6 +195,7 @@ agent — jobs are shown inside Agent Detail, not as a standalone top-level list
 | Field | Input | Validation / notes |
 |---|---|---|
 | `s3_backup_agent_id` | hidden | Set from the Agent Detail context, never user-chosen |
+| `s3_bucket_id` | select, optional | Leave unset to use the agent's own bucket (the common case). Only needed when `object_lock_enabled` is on — see below |
 | `name` | text | required |
 | `job_type` | radio/select: Files / Script | required; **changes which fields below are shown** |
 | `source_paths` | repeatable text list | Files job: "Which files/folders to back up." Script job: "Where the script writes its output" (still required either way, informs what gets snapshotted) |
@@ -196,14 +205,23 @@ agent — jobs are shown inside Agent Detail, not as a standalone top-level list
 | `keep_last_n` | number | optional retention — "keep the last N backups" |
 | `keep_for_days` | number | optional retention — "keep backups for N days" (either retention field is fine alone; don't force both) |
 | `bandwidth_limit_mbps` | number | optional |
-| `object_lock_enabled` | toggle | **Warn: cannot be changed after creation**, same pattern as the Bucket create form's WORM toggle in `ui-specification.md` §5.2 |
+| `object_lock_enabled` | toggle | **Requires `s3_bucket_id` to point at an existing bucket that already has Object Lock enabled** — see below. Cannot be changed after creation. |
 | `is_enabled` | toggle | default on |
 
 **Business rules:**
 - A `script` job with an empty `pre_script` must be blocked client-side with an
   inline field error, matching the server-side rejection.
-- `object_lock_enabled` follows the exact same "irreversible" messaging as bucket
-  WORM creation — reuse that copy.
+- **`object_lock_enabled` does NOT create a bucket.** Unlike the impression the
+  bucket create form's own WORM toggle might give, turning this on for a job
+  requires the customer to pick an *existing* bucket (via `s3_bucket_id`) that
+  was already created with Object Lock enabled — the API rejects the job
+  otherwise (`BackupJobsService::resolveBucketForJob()`). UI flow: when the
+  customer enables this toggle, force the `s3_bucket_id` select to appear and
+  filter its options to buckets where `object_lock_enabled = true`
+  (`GET /s3/buckets-perspective?objectLockEnabled=true` — check
+  `ui-specification.md` for the exact filter param name). If they have no
+  WORM buckets yet, show an inline message pointing at the bucket create flow
+  with Object Lock turned on, rather than letting them submit and hit a 403.
 
 ### 5.3 Edit Job
 

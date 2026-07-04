@@ -4,12 +4,11 @@ namespace NextDeveloper\S3\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
+use NextDeveloper\Commons\Helpers\DatabaseHelper;
 use NextDeveloper\IAM\Helpers\UserHelper;
-use NextDeveloper\S3\Database\Models\Accounts;
 use NextDeveloper\S3\Database\Models\BackupAgents;
-use NextDeveloper\S3\Database\Models\Servers;
+use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Services\AbstractServices\AbstractBackupAgentsService;
 
 /**
@@ -27,11 +26,29 @@ class BackupAgentsService extends AbstractBackupAgentsService
     /**
      * store() on the controller calls this — it does NOT create an active agent.
      * It issues a one-time registration token for a not-yet-installed agent.
-     * The row stays `pending` (no agent_api_key, no bucket) until register()
-     * is called by the agent binary itself with this token.
+     * The row stays `pending` (no agent_api_key) until register() is called
+     * by the agent binary itself with this token.
+     *
+     * s3_bucket_id is required here — the customer must already own the
+     * bucket this agent will write to (created via the normal Buckets API).
+     * We never provision a bucket on the customer's behalf: it's their
+     * infrastructure/cost to own explicitly, and WORM buckets in particular
+     * can't be created "on demand" later without losing the Object Lock
+     * guarantee for anything already in a non-WORM bucket.
      */
     public static function create(array $data)
     {
+        $bucket = static::resolveExistingBucket($data['s3_bucket_id'] ?? null);
+
+        $iamAccountId = array_key_exists('iam_account_id', $data)
+            ? DatabaseHelper::uuidToId('\NextDeveloper\IAM\Database\Models\Accounts', $data['iam_account_id'])
+            : UserHelper::currentAccount()->id;
+
+        if ($bucket->iam_account_id !== $iamAccountId) {
+            throw new NotAllowedException('The given s3_bucket_id does not belong to your account.');
+        }
+
+        $data['s3_bucket_id']                  = $bucket->id;
         $data['status']                        = 'pending';
         $data['registration_token']             = static::generateToken();
         $data['registration_token_expires_at']  = now()->addHour();
@@ -70,26 +87,18 @@ class BackupAgentsService extends AbstractBackupAgentsService
             throw new NotAllowedException('Registration token has expired. Please issue a new one from the dashboard.');
         }
 
+        $bucket = Buckets::withoutGlobalScopes()->find($agent->s3_bucket_id);
+
+        if (!$bucket) {
+            throw new NotAllowedException('The bucket assigned to this agent no longer exists.');
+        }
+
         $agentApiKey = static::generateToken();
+        $accessKey   = null;
 
-        $bucket    = null;
-        $accessKey = null;
-
-        UserHelper::runAsAdmin(function () use ($agent, $machineInfo, $agentApiKey, &$bucket, &$accessKey) {
-            $s3Account = static::resolveOrCreateS3Account($agent->iam_account_id, $agent->iam_user_id);
-            $server    = static::pickServerForNewBucket();
-
-            $bucket = BucketsService::create([
-                's3_account_id'  => $s3Account->id,
-                's3_server_id'   => $server->uuid,
-                'iam_account_id' => $agent->iam_account_id,
-                'iam_user_id'    => $agent->iam_user_id,
-                // Short, stable, unique per agent — customer never has to name this bucket themselves.
-                'name'           => 'backup-agent-' . Str::before($agent->uuid, '-'),
-            ]);
-
+        UserHelper::runAsAdmin(function () use ($agent, $bucket, $machineInfo, $agentApiKey, &$accessKey) {
             $accessKey = AccessKeysService::create([
-                's3_account_id'  => $s3Account->id,
+                's3_account_id'  => $bucket->s3_account_id,
                 'iam_account_id' => $agent->iam_account_id,
                 'iam_user_id'    => $agent->iam_user_id,
                 'role'           => 'readwrite',
@@ -99,7 +108,6 @@ class BackupAgentsService extends AbstractBackupAgentsService
             $agent->update(array_merge($machineInfo, [
                 'agent_api_key'                 => $agentApiKey,
                 'status'                        => 'active',
-                's3_bucket_id'                  => $bucket->id,
                 'registration_token'             => null,
                 'registration_token_expires_at'  => null,
                 'last_seen_at'                   => now(),
@@ -156,50 +164,21 @@ class BackupAgentsService extends AbstractBackupAgentsService
     }
 
     /**
-     * Resolve the S3 tenant account for a given IAM account, auto-provisioning
-     * one if this is the first S3 resource that account has ever created —
-     * mirrors the inline logic in BucketsService::create(), parameterized by
-     * an explicit account instead of UserHelper::currentAccount().
+     * Resolves a bucket reference (uuid or id) to an existing Buckets row.
+     * Never creates one — see the docblock on create() for why.
      */
-    private static function resolveOrCreateS3Account(int $iamAccountId, int $iamUserId): Accounts
+    private static function resolveExistingBucket(mixed $ref): Buckets
     {
-        $s3Account = Accounts::withoutGlobalScopes()
-            ->where('iam_account_id', $iamAccountId)
-            ->first();
+        $bucketId = $ref ? DatabaseHelper::uuidToId('\NextDeveloper\S3\Database\Models\Buckets', $ref) : null;
+        $bucket   = $bucketId ? Buckets::withoutGlobalScopes()->find($bucketId) : null;
 
-        if ($s3Account) {
-            return $s3Account;
+        if (!$bucket) {
+            throw new NotAllowedException(
+                'A valid s3_bucket_id is required to register a backup agent — create a bucket first via the Buckets API.'
+            );
         }
 
-        $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::find($iamAccountId);
-
-        return AccountsService::create([
-            'iam_account_id' => $iamAccountId,
-            'iam_user_id'    => $iamUserId,
-            'slug'           => $iamAccount->slug ?? $iamAccount->uuid,
-        ]);
-    }
-
-    /**
-     * Pick a storage server to host a newly-provisioned backup-agent bucket.
-     *
-     * Placeholder policy — just the first non-deleted server. This should
-     * become capacity/health-aware placement once there's more than one
-     * production S3 server (see the "Server 2 / replication" gap already
-     * tracked in this package's CLAUDE.md).
-     */
-    private static function pickServerForNewBucket(): Servers
-    {
-        $server = Servers::withoutGlobalScopes()
-            ->whereNull('deleted_at')
-            ->orderBy('id')
-            ->first();
-
-        if (!$server) {
-            throw new NotAllowedException('No S3 storage server is available to host a backup bucket.');
-        }
-
-        return $server;
+        return $bucket;
     }
 
     /**
