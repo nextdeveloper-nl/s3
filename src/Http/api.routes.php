@@ -473,7 +473,9 @@ Route::prefix('worm-expiring-perspective')->group(
 
 Route::prefix('access-keys')->group(
     function () {
-        Route::get('/{s3_access_keys}/reveal', 'AccessKeys\AccessKeysController@reveal');
+        // POST (not GET) so it doesn't collide with the {subObjects} wildcard route
+        // registered above, which would otherwise intercept it and return a false 404.
+        Route::post('/{s3_access_keys}/reveal', 'AccessKeys\AccessKeysController@reveal');
     }
 );
 
