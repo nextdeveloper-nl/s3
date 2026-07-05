@@ -2,6 +2,7 @@
 
 namespace NextDeveloper\S3\Services;
 
+use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\MultipartUploads;
 use NextDeveloper\S3\Services\AbstractServices\AbstractMultipartUploadsService;
 
@@ -24,26 +25,32 @@ class MultipartUploadsService extends AbstractMultipartUploadsService
      */
     public static function cleanup(): int
     {
-        $stale = MultipartUploads::where('status', 'in_progress')
-            ->where('last_activity_at', '<', now()->subHours(48))
-            ->get();
+        // withoutGlobalScopes() + runAsAdmin(): this runs from the scheduler with no
+        // authenticated user, so the AuthorizationScope would otherwise match nothing,
+        // and model observer writes would be denied by UserHelper::can().
+        return UserHelper::runAsAdmin(function () {
+            $stale = MultipartUploads::withoutGlobalScopes()
+                ->where('status', 'in_progress')
+                ->where('last_activity_at', '<', now()->subHours(48))
+                ->get();
 
-        foreach ($stale as $upload) {
-            $upload->update([
-                'status'         => 'aborted',
-                'aborted_at'     => now(),
-                'aborted_reason' => 'Auto-aborted: inactive for more than 48 hours',
-            ]);
+            foreach ($stale as $upload) {
+                $upload->update([
+                    'status'         => 'aborted',
+                    'aborted_at'     => now(),
+                    'aborted_reason' => 'Auto-aborted: inactive for more than 48 hours',
+                ]);
 
-            AuditLogsService::log('multipart.auto_abort', 'system', [
-                's3_account_id' => $upload->s3_account_id,
-                's3_bucket_id'  => $upload->s3_bucket_id,
-                'upload_id'     => $upload->upload_id,
-            ]);
+                AuditLogsService::log('multipart.auto_abort', 'system', [
+                    's3_account_id' => $upload->s3_account_id,
+                    's3_bucket_id'  => $upload->s3_bucket_id,
+                    'upload_id'     => $upload->upload_id,
+                ]);
 
-            $upload->delete();
-        }
+                $upload->delete();
+            }
 
-        return $stale->count();
+            return $stale->count();
+        });
     }
 }

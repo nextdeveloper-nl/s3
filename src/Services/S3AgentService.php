@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use NextDeveloper\Events\Services\Events;
 use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\AccessKeys;
+use NextDeveloper\S3\Database\Models\Accounts;
 use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Helpers\WormHelper;
@@ -147,6 +148,8 @@ class S3AgentService
             return;
         }
 
+        $touchedAccountIds = [];
+
         foreach ($buckets as $stats) {
             $name = $stats['name'] ?? null;
             if (!$name) {
@@ -190,12 +193,43 @@ class S3AgentService
                     $commitment?->update(['quota_bytes' => $stats['size_bytes']]);
                 }
             });
+
+            $touchedAccountIds[$bucket->s3_account_id] = true;
+        }
+
+        foreach (array_keys($touchedAccountIds) as $accountId) {
+            static::syncAccountStorageFromBuckets((int) $accountId);
         }
 
         Log::info('[S3AgentService] Bucket stats updated from telemetry', [
             'server_uuid'  => $server->uuid,
             'bucket_count' => count($buckets),
         ]);
+    }
+
+    /**
+     * Re-sum an account's live buckets and write the totals back onto s3_accounts.
+     *
+     * storage_bytes_used/object_count on the account row are denormalised
+     * counters read by QuotaHelper and UsageSnapshotsService — nothing else
+     * keeps them in sync with the per-bucket figures telemetry just updated.
+     */
+    private static function syncAccountStorageFromBuckets(int $accountId): void
+    {
+        $totals = Buckets::withoutGlobalScopes()
+            ->where('s3_account_id', $accountId)
+            ->whereNull('deleted_at')
+            ->selectRaw('coalesce(sum(size_bytes), 0) as storage_bytes, coalesce(sum(object_count), 0) as objects')
+            ->first();
+
+        UserHelper::runAsAdmin(function () use ($accountId, $totals) {
+            Accounts::withoutGlobalScopes()
+                ->where('id', $accountId)
+                ->update([
+                    'storage_bytes_used' => $totals->storage_bytes,
+                    'object_count'       => $totals->objects,
+                ]);
+        });
     }
 
     /**

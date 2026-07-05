@@ -24,8 +24,11 @@ class ResetBandwidthJob implements ShouldQueue
         $previousMonth = now()->subMonth()->format('Y-m');
         BandwidthMonthliesService::resetMonth($previousMonth);
 
+        // withoutGlobalScopes(): runs from the scheduler with no authenticated user,
+        // so the AuthorizationScope on Accounts would otherwise match nothing.
         // Reset the live counter on every account for the new month
-        \NextDeveloper\S3\Database\Models\Accounts::whereNull('deleted_at')
+        \NextDeveloper\S3\Database\Models\Accounts::withoutGlobalScopes()
+            ->whereNull('deleted_at')
             ->update(['egress_bytes_mo_used' => 0]);
     }
 }

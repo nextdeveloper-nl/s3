@@ -48,7 +48,8 @@ class BandwidthMonthliesService extends AbstractBandwidthMonthliesService
     {
         $month = self::resolveMonth($yearMonth);
 
-        BandwidthMonthlies::whereYear('month', $month->year)
+        BandwidthMonthlies::withoutGlobalScopes()
+            ->whereYear('month', $month->year)
             ->whereMonth('month', $month->month)
             ->update(['egress_bytes' => 0, 'ingress_bytes' => 0]);
     }
