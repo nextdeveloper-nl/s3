@@ -14,6 +14,7 @@ class AccessKeysUpdateRequest extends AbstractFormRequest
     {
         return [
             's3_account_id' => 'nullable|exists:s3_accounts,uuid|uuid',
+        'name' => 'nullable|string',
         'role' => 'string',
         'bucket_acls' => '',
         'status' => 'string',

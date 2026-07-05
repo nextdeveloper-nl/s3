@@ -25,6 +25,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $iam_user_id
  * @property string $access_key
  * @property string $secret_key_enc
+ * @property string $name
  * @property string $role
  * @property $bucket_acls
  * @property string $status
@@ -58,6 +59,7 @@ class AccessKeys extends Model
             'iam_user_id',
             'access_key',
             'secret_key_enc',
+            'name',
             'role',
             'bucket_acls',
             'status',
@@ -92,6 +94,7 @@ class AccessKeys extends Model
     's3_account_id' => 'integer',
     'access_key' => 'string',
     'secret_key_enc' => 'string',
+    'name' => 'string',
     'role' => 'string',
     'bucket_acls' => 'array',
     'status' => 'string',

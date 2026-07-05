@@ -66,6 +66,7 @@ class AbstractAccessKeysTransformer extends AbstractTransformer
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
             'access_key'  =>  $model->access_key,
             'secret_key_enc'  =>  $model->secret_key_enc,
+            'name'  =>  $model->name,
             'role'  =>  $model->role,
             'bucket_acls'  =>  $model->bucket_acls,
             'status'  =>  $model->status,

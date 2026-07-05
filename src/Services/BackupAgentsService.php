@@ -4,6 +4,7 @@ namespace NextDeveloper\S3\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\Commons\Helpers\DatabaseHelper;
 use NextDeveloper\IAM\Helpers\UserHelper;
@@ -102,6 +103,10 @@ class BackupAgentsService extends AbstractBackupAgentsService
                 's3_account_id'  => $bucket->s3_account_id,
                 'iam_account_id' => $agent->iam_account_id,
                 'iam_user_id'    => $agent->iam_user_id,
+                // Identifies this key as backup.agent's own in both our dashboard and
+                // the storage agent's s3.json — previously every key's name came back
+                // blank (AccessKeysService::create() never sent one at all).
+                'name'           => 'backup-agent-' . ($machineInfo['hostname'] ?? Str::before($agent->uuid, '-')),
                 'role'           => 'readwrite',
                 // Storage agent's s3.BucketACL expects an array of {bucket_id, permission}
                 // objects, not bare bucket names — "bucket_id" here is actually the bucket

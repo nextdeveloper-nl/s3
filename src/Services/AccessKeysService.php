@@ -54,10 +54,14 @@ class AccessKeysService extends AbstractAccessKeysService
         $model->plain_secret = $pair['secret_key'];
 
         // Push iam_create to every server that has buckets for this account.
+        // "name" was never sent before this — every IAM identity's Name/UserID
+        // came back blank in s3.json regardless of what the caller intended,
+        // making identities impossible to tell apart administratively.
         static::dispatchIamToServers($model->s3_account_id, function (string $serverUuid) use ($model, $pair) {
             S3AgentCommandService::iamCreate($serverUuid, [
                 'access_key'  => $model->access_key,
                 'secret_key'  => $pair['secret_key'],
+                'name'        => $model->name ?? $model->access_key,
                 'role'        => $model->role        ?? 'readwrite',
                 'bucket_acls' => $model->bucket_acls ?? [],
             ]);
