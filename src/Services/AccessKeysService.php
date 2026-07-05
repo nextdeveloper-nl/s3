@@ -98,6 +98,13 @@ class AccessKeysService extends AbstractAccessKeysService
 
     /**
      * Revoke a key so it can no longer authenticate.
+     *
+     * Previously only flipped our own DB row — the real SeaweedFS identity
+     * was never touched, so a "revoked" key kept authenticating forever.
+     * There's no separate disable/suspend command on the storage agent side
+     * (only iam_create/iam_delete), so revoke pushes iam_delete exactly like
+     * delete() does; our record just stays around as `revoked` instead of
+     * being removed, preserving the audit trail delete() doesn't have.
      */
     public static function revoke(string $uuid, string $reason = ''): AccessKeys
     {
@@ -108,6 +115,10 @@ class AccessKeysService extends AbstractAccessKeysService
             'revoked_at'     => now(),
             'revoked_reason' => $reason,
         ]);
+
+        static::dispatchIamToServers($model->s3_account_id, function (string $serverUuid) use ($model) {
+            S3AgentCommandService::iamDelete($serverUuid, $model->access_key);
+        });
 
         AuditLogsService::log('key.revoke', UserHelper::me()->uuid ?? 'system', [
             's3_account_id'    => $model->s3_account_id,

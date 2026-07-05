@@ -65,6 +65,7 @@ class AbstractAccessKeysPerspectiveTransformer extends AbstractTransformer
             'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
             'access_key'  =>  $model->access_key,
+            'name'  =>  $model->name,
             'role'  =>  $model->role,
             'bucket_acls'  =>  $model->bucket_acls,
             'status'  =>  $model->status,

@@ -222,6 +222,13 @@ On API 403, display the error message from the response.
 
 ## 6. Access Keys
 
+See `updates/2026-07-05-access-key-name-and-bucket-acls.md` for the background on
+why `name` and bucket-scoped ACLs are new here — short version: every key's IAM
+identity name came back blank until now, and every key created through this form
+has always silently gotten **full, unrestricted access to every bucket on the
+account**, because the create form never sent `bucket_acls` at all. Both are fixed
+below.
+
 ### 6.1 Access Key List
 
 **Customer endpoint:** `GET /s3/access-keys-perspective`
@@ -231,8 +238,10 @@ On API 403, display the error message from the response.
 
 | Field | Label | Notes |
 |---|---|---|
+| `name` | Name | Falls back to showing `access_key` if blank (older keys created before this field existed) |
 | `access_key` | Access Key ID | Monospace font |
 | `role` | Role | `full_access`, `read_only`, etc. |
+| — | **Scope** | Not a raw column — derive from `bucket_acls`: empty/null → pill "All buckets" (amber — call out that this is broad access, not the safe default); non-empty → "N bucket(s)" with the bucket names in a tooltip |
 | `status` | Status | Pill: `active` green, `revoked` red |
 | `expires_at` | Expires | Show "Never" if null |
 | `last_used_at` | Last Used | Relative time |
@@ -251,10 +260,51 @@ On API 403, display the error message from the response.
 | Field | Input | Notes |
 |---|---|---|
 | `s3_account_id` | hidden / select | Required |
+| `name` | text | Optional but strongly encouraged — label the key by what it's for (e.g. "Jenkins CI uploads"). Falls back to the access key string itself if left blank, better than the previous always-blank behavior but still worth prompting for |
 | `role` | select | Options: `full_access`, `read_only` (and any others from existing data) |
+| **Bucket access** | radio: **All buckets** / **Specific buckets** | See below — this is the ACL picker, net-new |
 | `expires_at` | date picker | Optional; leave blank = never expires |
 
-**Post-creation:** Show the `secret_key_enc` (decrypted secret key) **once** in a "copy now" dialog — it will not be shown again. Also show the `access_key` value.
+**Bucket access picker (the new part):**
+
+- Default to **"All buckets"** selected, matching today's actual (if previously
+  invisible) behavior — sends `bucket_acls: []` or omits it. Label this option
+  clearly: *"This key can read/write every bucket in this account."* Don't hide
+  that this is broad access — make it a visible, deliberate choice rather than
+  an invisible default the way it's been until now.
+- **"Specific buckets"** reveals a repeatable row: bucket select
+  (`GET /s3/buckets-perspective` for options) + permission select
+  (`Read only` / `Read & write` / `Admin`), Add-another-bucket button.
+- On submit, build `bucket_acls` as an array of
+  `{ "bucket_id": "<bucket_name>", "permission": "r" | "rw" | "admin" }`
+  objects — **`bucket_id` takes the bucket's *name*, not its UUID**, despite
+  the field name (confirmed against the storage agent's actual IAM config).
+  Getting this wrong silently produces a key that exists but can't access
+  anything — validate that every row has both a bucket and a permission
+  selected before allowing submit, and don't let the same bucket appear twice
+  in the list.
+
+**Post-creation:** Show the `secret_key_enc` (decrypted secret key) **once** in
+a "copy now" dialog — it will not be shown again. Also show the `access_key`
+value.
+
+### 6.3 Edit Access Key
+
+**Endpoint:** `PATCH /s3/access-keys/{id}`
+
+**Editable in the UI:** `name` only.
+
+**Do not expose `role` or `bucket_acls` as editable, even though the API
+technically accepts them on PATCH.** There is no mechanism that pushes a
+changed role/ACL out to the already-created identity on the storage agent —
+only `iam_create`/`iam_delete` exist, there's no `iam_update`. A PATCH that
+changes `bucket_acls` would silently update our database record while the
+real, live SeaweedFS identity keeps its original permissions forever,
+producing exactly the kind of "looks right in the dashboard, wrong in
+reality" mismatch this whole project exists to avoid. If a customer needs
+different bucket access, the correct flow is **revoke this key and create a
+new one** with the right scope — make that the only path the UI offers,
+rather than a PATCH that appears to work but doesn't.
 
 ---
 
