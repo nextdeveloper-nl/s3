@@ -161,9 +161,19 @@ class S3AgentCommandService
         static::dispatch($serverUuid, 'iam_create', $key);
     }
 
-    public static function iamDelete(string $serverUuid, string $accessKey): void
+    /**
+     * $name must be the identity's IAM name (what iam_create sent as "name"),
+     * NOT the access key — the agent's DeleteIAMUser() matches on identity
+     * name, not access key (dispatcher.go: `case "iam_delete": ...DeleteIAMUser(p.Name)`).
+     * Sending the access key under the wrong param key here previously meant
+     * every call resolved to an empty name — and since DeleteIAMUser() removes
+     * every identity whose Name matches, not just the first, and every
+     * identity's Name was blank before the recent name-field fix, this
+     * deleted every non-admin identity on the server in a single call.
+     */
+    public static function iamDelete(string $serverUuid, string $name): void
     {
-        static::dispatch($serverUuid, 'iam_delete', ['access_key' => $accessKey]);
+        static::dispatch($serverUuid, 'iam_delete', ['name' => $name]);
     }
 
     public static function reconcile(string $serverUuid, string $scope = 'all'): void

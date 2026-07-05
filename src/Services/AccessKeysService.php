@@ -84,13 +84,15 @@ class AccessKeysService extends AbstractAccessKeysService
             );
         }
 
-        $accessKey  = $model->access_key;
-        $accountId  = $model->s3_account_id;
+        // Must match whatever iam_create sent as "name" — the agent deletes by
+        // identity name, not access key (see S3AgentCommandService::iamDelete()).
+        $identityName = $model->name ?? $model->access_key;
+        $accountId    = $model->s3_account_id;
 
         parent::delete($id);
 
-        static::dispatchIamToServers($accountId, function (string $serverUuid) use ($accessKey) {
-            S3AgentCommandService::iamDelete($serverUuid, $accessKey);
+        static::dispatchIamToServers($accountId, function (string $serverUuid) use ($identityName) {
+            S3AgentCommandService::iamDelete($serverUuid, $identityName);
         });
 
         return true;
@@ -116,8 +118,12 @@ class AccessKeysService extends AbstractAccessKeysService
             'revoked_reason' => $reason,
         ]);
 
-        static::dispatchIamToServers($model->s3_account_id, function (string $serverUuid) use ($model) {
-            S3AgentCommandService::iamDelete($serverUuid, $model->access_key);
+        // Must match whatever iam_create sent as "name" — the agent deletes by
+        // identity name, not access key.
+        $identityName = $model->name ?? $model->access_key;
+
+        static::dispatchIamToServers($model->s3_account_id, function (string $serverUuid) use ($identityName) {
+            S3AgentCommandService::iamDelete($serverUuid, $identityName);
         });
 
         AuditLogsService::log('key.revoke', UserHelper::me()->uuid ?? 'system', [
