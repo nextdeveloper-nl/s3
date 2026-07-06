@@ -522,6 +522,16 @@ Route::prefix('backup-job-runs')->group(
     }
 );
 
+Route::prefix('restore-jobs')->group(
+    function () {
+        // Read-only — see RestoreJobsController's class docblock. Triggering a
+        // restore happens via POST /backup-jobs/{id}/restore below.
+        Route::get('/', 'RestoreJobs\RestoreJobsController@index');
+        Route::get('/{s3_restore_jobs}/{subObjects}', 'RestoreJobs\RestoreJobsController@relatedObjects');
+        Route::get('/{s3_restore_jobs}', 'RestoreJobs\RestoreJobsController@show');
+    }
+);
+
 // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 Route::prefix('backup-agents')->group(
@@ -535,6 +545,7 @@ Route::prefix('backup-agents')->group(
 Route::prefix('backup-jobs')->group(
     function () {
         Route::post('/{s3_backup_jobs}/run-now', 'BackupJobs\BackupJobsController@runNow');
+        Route::post('/{s3_backup_jobs}/restore', 'BackupJobs\BackupJobsController@restore');
     }
 );
 

@@ -23,11 +23,16 @@ a major contributor — mature tools get this right after years of edge cases;
 reinventing it is where the risk concentrates. Backup repositories are also now a
 primary ransomware target, making immutability non-negotiable.
 
-Given that, three decisions shape everything below:
+Given that, four decisions shape everything below:
 
-- **Engine: Kopia**, embedded as a Go library. Content-defined chunking, dedup,
-  encryption, incremental snapshots, and a native S3-compatible repository
-  backend — all things a from-scratch engine would have to re-derive.
+- **Two engines: `rsync` (default) and `kopia`.** `rsync` mirrors a job's
+  output directly into the bucket as a plain, browsable 1:1 copy — no
+  chunking/dedup, no point-in-time snapshot, cheapest to restore from since a
+  file in the backup *is* an object in the bucket. `kopia`, embedded as a Go
+  library, is the dedup/content-addressable option for jobs that need
+  incremental snapshots, encryption, and space efficiency at the cost of data
+  only being extractable through the Kopia engine itself, never a direct
+  object read. Per-job, immutable after creation — see `database.md`.
 - **Target: our own S3 service only.** Every agent is registered against a
   bucket the customer already owns (created via the normal Buckets API — we
   never provision one on their behalf), so we can apply the WORM/Object Lock
@@ -37,6 +42,15 @@ Given that, three decisions shape everything below:
   explicitly in `s3_backup_job_runs` every time it runs; a job that stops
   reporting completions gets escalated by `s3:backup-agents-check-missed`
   even while the agent's heartbeat looks perfectly healthy.
+- **Restores are verified, not just reported.** The other half of "silent
+  failure" is a restore that *looks* successful but hands back unusable data.
+  Every customer-triggered restore (`restore_snapshot` — see `protocol.md`)
+  mandatorily checksum-verifies the restored data before the platform will
+  ever mark it `completed`; anything else, including a checksum mismatch,
+  is recorded as `failed` in `s3_restore_jobs` (`database.md`) — never a
+  success with a caveat. Most restore requests are expected to be file-scoped
+  (`restore_paths`), not whole-snapshot — customers usually want one specific
+  file (e.g. a DB dump) back, not the entire backup.
 
 ## House pattern this plugs into
 
@@ -99,7 +113,8 @@ the run record before the agent replies, since that path has a known start.
 | `src/Services/BackupAgentsService.php` | Registration token issuance (requires an existing bucket), register(), revoke() |
 | `src/Services/BackupJobsService.php` | Job CRUD, full_sync payload assembly |
 | `src/Services/BackupJobRunsService.php` | Run lifecycle (start/complete/fail/record), missed-job detection |
-| `src/Services/BackupAgentCommandService.php` | Outbound NATS command dispatch |
+| `src/Services/RestoreJobsService.php` | Restore lifecycle (start/complete/fail), engine/run validation |
+| `src/Services/BackupAgentCommandService.php` | Outbound NATS command dispatch, including `restoreSnapshot()` |
 | `src/Services/BackupAgentEventService.php` | Inbound NATS message routing (heartbeat/telemetry/job_run/alert/result) |
 | `src/Jobs/CheckMissedBackupsJob.php` + `Console/Commands/CheckMissedBackupsCommand.php` | `s3:backup-agents-check-missed` cron |
 | `NextDeveloper\Events\Services\NatsAuthCalloutService` | NATS auth — `s3_backup_agents` entry in `AGENT_TABLES` |

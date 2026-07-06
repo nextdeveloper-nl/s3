@@ -47,6 +47,11 @@ class BackupJobsQueryFilter extends AbstractQueryFilter
         return $this->jobType($value);
     }
 
+    public function engine($value)
+    {
+        return $this->builder->where('engine', '=', $value);
+    }
+
     public function isEnabled($value)
     {
         return $this->builder->where('is_enabled', '=', filter_var($value, FILTER_VALIDATE_BOOLEAN));

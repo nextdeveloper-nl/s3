@@ -40,7 +40,28 @@ Published by `NextDeveloper\S3\Services\BackupAgentCommandService`. Envelope
 | `resume_job` | `{job_uuid}` | |
 | `cancel_job` | `{job_uuid}` | Cancel a currently-running job. |
 | `verify_snapshot` | `{job_uuid, snapshot_id}` | Restore the given Kopia snapshot to a temp location and checksum-verify it. Long `timeout_s` (1800s) — a restore+checksum pass takes a while. |
+| `restore_snapshot` | `{job_uuid, snapshot_id, destination_path, restore_paths, restore_uuid}` | Customer-facing restore: restore backup data to a real `destination_path`, then mandatorily checksum-verify it before reporting success. Works for both engines — see below. Long `timeout_s` (3600s) — writes the full dataset back to disk in addition to checksumming it. |
 | `revoke` | `{reason}` | Shut down cleanly. Sent before `agent_api_key` is cleared — the agent has a brief window to react before it's rejected on reconnect. |
+
+#### `restore_snapshot` params
+
+- `snapshot_id` — the Kopia snapshot to extract from. **Only meaningful for
+  `engine=kopia` jobs.** `null` for `engine=rsync` jobs, which have no
+  point-in-time snapshot — a restore for those always means "copy what's
+  currently in the bucket" for `restore_paths`.
+- `destination_path` — required, explicit. Never defaults to the job's
+  original `source_paths` — restoring over the original location is allowed,
+  but only if the customer explicitly requested that same path.
+- `restore_paths` — optional array of paths relative to the backup root.
+  Empty/omitted restores everything; the common case is expected to be a
+  single specific file (e.g. a DB dump), not the whole snapshot/bucket
+  contents.
+- `restore_uuid` — pre-created by the platform (an `s3_restore_jobs` row),
+  echoed back in the `result.output.restore_uuid`, same pattern as
+  `run_job_now`'s `run_uuid`.
+- The agent picks its restore strategy based on which engine the job uses
+  (direct per-object copy for `rsync`, path-scoped extraction for `kopia`) —
+  that logic is entirely agent-side.
 
 ### `full_sync` job entry shape
 
@@ -51,6 +72,7 @@ Each item in `payload.jobs` (see `BackupJobsService::buildFullSyncPayload()`):
   "uuid": "...",
   "name": "nightly-mysql-dump",
   "job_type": "files|script",
+  "engine": "rsync|kopia",
   "source_paths": ["/var/backups/mysql"],
   "pre_script": "#!/bin/bash\nmysqldump ... > /var/backups/mysql/dump.sql\n",
   "script_timeout_s": 900,
@@ -79,6 +101,11 @@ Each item in `payload.jobs` (see `BackupJobsService::buildFullSyncPayload()`):
   touches Kopia. A failed pre-script is never allowed to look like a successful
   backup (see `overview.md` — this is the direct answer to the "silent failure"
   problem the design research turned up).
+- `engine: "rsync"` (default) — mirrors the output path directly into the bucket
+  as a plain, browsable 1:1 copy. No point-in-time snapshot concept; a restore
+  always means "current bucket state" (see `restore_snapshot` above).
+  `engine: "kopia"` — the dedup/content-addressable engine described throughout
+  the rest of this doc, where each run produces a distinct restorable snapshot.
 - `schedule` is a standard cron expression, evaluated **by the agent**, not the
   platform (see `overview.md`).
 
@@ -158,8 +185,41 @@ path with a `command_id`, since scheduled runs never go through this method (see
 }
 ```
 
+For a `restore_snapshot` command, `output` instead carries:
+
+```json
+{
+  "output": {
+    "restore_uuid":    "...",
+    "verified":        true,
+    "bytes_restored":  104857600
+  }
+}
+```
+
+`verified` is mandatory — the platform only marks a restore `completed` when
+`status: "completed"` **and** `verified: true` both hold (see
+`RestoreJobsService::completeRestore()`/`failRestore()`); anything else,
+including a checksum mismatch, is recorded as `failed`.
+
 `status` values: `completed`, `failed`, `rejected` — same convention as every
-other agent type.
+other agent type. `rejected` is what an agent should return when it can't act
+on the command as given — most commonly an unrecognized `job_uuid` (its local
+job list is stale relative to the platform, e.g. it reconnected before the
+last `full_sync` landed, or a job changed after its last sync). On a
+`rejected` result, `BackupAgentEventService::handleResult()` immediately
+re-sends `full_sync` to that agent so its job list catches up before the next
+attempt.
+
+For `run_job_now` specifically, a `rejected` result also triggers an automatic
+retry of the run (`BackupAgentCommandService::retryRunJobNowAfterRejection()`)
+— full_sync, then re-send `run_job_now`. This is capped at
+`MAX_REJECTED_RETRIES` (3) consecutive rejections for the same `job_uuid`
+(cache-based counter, 15-minute TTL, not a DB column). Past that, the platform
+stops retrying — three rejections in a row each preceded by a fresh
+`full_sync` means the agent isn't merely out of sync — and leaves a system
+comment on the job (`NextDeveloper\Commons\Services\CommentsService::createSystemComment()`)
+for a human to investigate instead of looping forever.
 
 ## Versioning
 

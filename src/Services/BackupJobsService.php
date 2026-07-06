@@ -65,7 +65,7 @@ class BackupJobsService extends AbstractBackupJobsService
      */
     public static function update($id, array $data)
     {
-        unset($data['s3_backup_agent_id'], $data['s3_bucket_id'], $data['job_type'], $data['object_lock_enabled']);
+        unset($data['s3_backup_agent_id'], $data['s3_bucket_id'], $data['job_type'], $data['engine'], $data['object_lock_enabled']);
 
         static::assertScriptHasPreScript($data, existing: BackupJobs::where('uuid', $id)->first());
 

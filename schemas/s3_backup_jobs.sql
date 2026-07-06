@@ -2,7 +2,7 @@
 -- A named backup job belonging to one s3_backup_agent. Either backs up raw
 -- file/folder paths directly (job_type='files'), or runs a script first and
 -- backs up that script's output (job_type='script', e.g. a mysqldump wrapper).
--- Both feed the same output path into the agent's embedded Kopia engine.
+-- Both feed into one of the agent's two backup engines (see `engine` below).
 
 CREATE TABLE s3_backup_jobs (
     id                   bigserial    PRIMARY KEY,
@@ -21,6 +21,13 @@ CREATE TABLE s3_backup_jobs (
 
     name                 text         NOT NULL,
     job_type             text         NOT NULL, -- files | script
+
+    -- rsync (default) mirrors source_paths directly into the bucket as a
+    -- plain, browsable 1:1 copy — no point-in-time snapshot concept, a
+    -- restore always means "current bucket state". kopia is the
+    -- dedup/content-addressable engine, where each run produces a distinct
+    -- restorable snapshot (s3_backup_job_runs.kopia_snapshot_id).
+    engine               text         NOT NULL DEFAULT 'rsync', -- rsync | kopia
 
     source_paths         text[],      -- files job: paths to snapshot; script job: paths to
                                        -- clean up / where the script is expected to write output
@@ -62,3 +69,8 @@ CREATE        INDEX ON s3_backup_jobs (is_enabled) WHERE is_enabled = true;
 --   FROM s3_backup_agents a WHERE a.id = j.s3_backup_agent_id AND j.s3_bucket_id IS NULL;
 -- ALTER TABLE s3_backup_jobs ALTER COLUMN s3_bucket_id SET NOT NULL;
 -- CREATE INDEX ON s3_backup_jobs (s3_bucket_id);
+--
+-- Second backfill, adding the rsync/kopia engine distinction:
+--
+-- ALTER TABLE s3_backup_jobs ADD COLUMN engine text NOT NULL DEFAULT 'rsync';
+-- values: rsync | kopia

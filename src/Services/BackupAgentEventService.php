@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Log;
 use NextDeveloper\Events\Services\Events;
 use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\BackupAgents;
+use NextDeveloper\S3\Database\Models\BackupJobRuns;
 use NextDeveloper\S3\Database\Models\BackupJobs;
 
 /**
@@ -175,8 +176,49 @@ class BackupAgentEventService
             }
         }
 
+        // restore_snapshot results carry the restore_uuid we generated when the
+        // command was sent. A restore only "completes" if the agent finished
+        // AND its own checksum verification passed — anything else is a
+        // failure, not a success with a caveat (see RestoreJobsService).
+        $restoreUuid = $output['restore_uuid'] ?? null;
+
+        if ($restoreUuid) {
+            if ($status === 'completed' && ($output['verified'] ?? false)) {
+                RestoreJobsService::completeRestore($restoreUuid, $output);
+            } else {
+                RestoreJobsService::failRestore($restoreUuid, $payload['message'] ?? 'Checksum verification failed');
+            }
+        }
+
         if ($status === 'failed') {
             Events::fire('agent.backup.command.failed', $agent, $payload);
+        }
+
+        // A `rejected` command (e.g. run_job_now for a job_uuid the agent has
+        // never seen — it reconnected before the last full_sync landed, or a
+        // job was created/changed and the agent's copy is stale) means the
+        // agent's job list is out of sync with the platform. Re-sending
+        // full_sync is idempotent and gets the agent caught up so the next
+        // attempt succeeds. For run_job_now specifically, also retry the run
+        // itself (bounded — see retryRunJobNowAfterRejection()) rather than
+        // just resyncing and leaving it at that.
+        if ($status === 'rejected') {
+            Log::warning('[BackupAgentEventService] Command rejected — re-syncing agent job list', [
+                'agent_uuid' => $agent->uuid,
+                'command_id' => $commandId,
+                'message'    => $payload['message'] ?? null,
+            ]);
+
+            BackupAgentCommandService::fullSync($agent->uuid);
+
+            if ($runUuid) {
+                $run = BackupJobRuns::withoutGlobalScopes()->where('uuid', $runUuid)->first();
+                $job = $run ? BackupJobs::withoutGlobalScopes()->find($run->s3_backup_job_id) : null;
+
+                if ($job) {
+                    BackupAgentCommandService::retryRunJobNowAfterRejection($job);
+                }
+            }
         }
 
         Log::info('[BackupAgentEventService] Command result received', [

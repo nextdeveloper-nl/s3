@@ -21,6 +21,9 @@ class BackupJobsCreateRequest extends AbstractFormRequest
             's3_bucket_id'         => 'nullable|exists:s3_buckets,uuid|uuid',
             'name'                 => 'required|string',
             'job_type'             => 'required|string|in:files,script',
+            // rsync (default): plain 1:1 mirror, no snapshot history. kopia: dedup engine,
+            // each run is a restorable snapshot. See docs/backup.agent/protocol.md.
+            'engine'               => 'nullable|string|in:rsync,kopia',
             // files job: paths to snapshot. script job: paths the script is expected to write to.
             'source_paths'         => 'nullable|array',
             'source_paths.*'       => 'string',

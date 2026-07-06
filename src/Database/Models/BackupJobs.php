@@ -31,6 +31,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $iam_user_id
  * @property string $name
  * @property string $job_type
+ * @property string $engine
  * @property array $source_paths
  * @property string $pre_script
  * @property integer $script_timeout_s
@@ -67,6 +68,7 @@ class BackupJobs extends Model
             'iam_user_id',
             'name',
             'job_type',
+            'engine',
             'source_paths',
             'pre_script',
             'script_timeout_s',
@@ -105,6 +107,7 @@ class BackupJobs extends Model
     's3_bucket_id' => 'integer',
     'name' => 'string',
     'job_type' => 'string',
+    'engine' => 'string',
     'source_paths' => \NextDeveloper\Commons\Database\Casts\TextArray::class,
     'pre_script' => 'string',
     'script_timeout_s' => 'integer',

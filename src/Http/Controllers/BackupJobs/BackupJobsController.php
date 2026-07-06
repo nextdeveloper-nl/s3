@@ -11,6 +11,8 @@ use NextDeveloper\S3\Database\Models\BackupJobs;
 use NextDeveloper\S3\Services\BackupJobsService;
 use NextDeveloper\S3\Services\BackupAgentCommandService;
 use NextDeveloper\S3\Http\Requests\BackupJobs\BackupJobsCreateRequest;
+use NextDeveloper\S3\Http\Requests\BackupJobs\BackupJobsRestoreRequest;
+use NextDeveloper\S3\Services\BackupJobRunsService;
 use NextDeveloper\Commons\Http\Traits\Tags as TagsTrait;
 use NextDeveloper\Commons\Http\Traits\Addresses as AddressesTrait;
 
@@ -109,5 +111,33 @@ class BackupJobsController extends AbstractController
         $run = BackupAgentCommandService::runJobNow($model);
 
         return ResponsableFactory::makeResponse($this, $run);
+    }
+
+    /**
+     * POST /s3/backup-jobs/{s3_backup_jobs}/restore
+     *
+     * Dispatches a restore_snapshot command to the owning agent. For
+     * engine=kopia jobs, the request must include s3_backup_job_run_id
+     * (which snapshot to restore from); for engine=rsync jobs it must be
+     * omitted (always restores current bucket state) — enforced in
+     * BackupJobsRestoreRequest::withValidator(). restore_paths is optional —
+     * omitted/empty restores everything. See
+     * BackupAgentCommandService::restoreSnapshot().
+     */
+    public function restore($ref, BackupJobsRestoreRequest $request)
+    {
+        $job = BackupJobsService::getByRef($ref);
+        $run = $request->validated('s3_backup_job_run_id')
+            ? BackupJobRunsService::getByRef($request->validated('s3_backup_job_run_id'))
+            : null;
+
+        $restore = BackupAgentCommandService::restoreSnapshot(
+            $job,
+            $run,
+            $request->validated('destination_path'),
+            $request->validated('restore_paths', [])
+        );
+
+        return ResponsableFactory::makeResponse($this, $restore);
     }
 }

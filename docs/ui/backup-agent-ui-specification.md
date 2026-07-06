@@ -38,8 +38,9 @@ S3 Module
 │   ├── List
 │   ├── Register New Agent (token issuance + one-time install command)
 │   └── Agent Detail
-│       ├── Jobs (list, create, edit, run now)
-│       │   └── Job Detail → Run History
+│       ├── Jobs (list, create, edit, run now, restore)
+│       │   └── Job Detail → Run History (kopia jobs: restore a specific run)
+│       │                  → Restore History
 │       └── Revoke
 ├── Usage & Billing
 ├── Webhooks
@@ -61,7 +62,9 @@ different default filter.
 | Revoke agent | `POST /s3/backup-agents/{id}/revoke` | Not a `/do/{action}` dispatch — it's its own route |
 | Backup Jobs | `GET /s3/backup-jobs` | Filter by `s3BackupAgentId` for an agent's jobs |
 | Run job now | `POST /s3/backup-jobs/{id}/run-now` | Returns the created `s3_backup_job_runs` row |
+| Trigger a restore | `POST /s3/backup-jobs/{id}/restore` | Returns the created `s3_restore_jobs` row. Body needs `s3_backup_job_run_id` for `engine=kopia` jobs, must omit it for `engine=rsync` jobs — see §7.1 |
 | Backup Job Runs | `GET /s3/backup-job-runs` | **Read-only** — no create/edit/delete in the UI at all. Filter by `s3BackupJobId` |
+| Restore Jobs | `GET /s3/restore-jobs` | **Read-only**, same pattern as Backup Job Runs. Filter by `s3BackupJobId` |
 
 All three support the standard list filters (`tags`, `created_at_start/end`, etc.)
 plus their own fields — see §4–6 below for the filterable ones worth exposing in
@@ -86,7 +89,7 @@ The UI's job is only to display that command (§4.2).
 |---|---|---|
 | `hostname` | Machine | `—` while `status = pending` (agent hasn't reported in yet) |
 | `os` / `arch` | Platform | e.g. "linux / amd64"; `—` while pending |
-| `status` | Status | Pill: `active` green, `pending` — see §7 (needs a new pill color), `revoked` red |
+| `status` | Status | Pill: `active` green, `pending` — see §8 (needs a new pill color), `revoked` red |
 | `health` | Health | Pill: `healthy` green, anything else falls back to grey/`unknown` |
 | `last_seen_at` | Last Seen | Relative time (`—` if never) |
 | `agent_version` | Version | Monospace |
@@ -176,7 +179,8 @@ agent — jobs are shown inside Agent Detail, not as a standalone top-level list
 |---|---|---|
 | `name` | Name | Link to Job Detail |
 | `job_type` | Type | `files` / `script` |
-| `schedule` | Schedule | Raw cron string — see §7 for the "next run" caveat |
+| `engine` | Engine | `rsync` / `kopia` — determines which restore flow applies to this job, see §7.1 |
+| `schedule` | Schedule | Raw cron string — see §8 for the "next run" caveat |
 | `is_enabled` | Enabled | Toggle switch, `PATCH /s3/backup-jobs/{id}` `{is_enabled: bool}` |
 | — | **Last Run** | Not a column on this model — fetch the most recent `s3_backup_job_runs` row per job (`GET /s3/backup-job-runs?s3BackupJobId={id}&orderBy=-created_at&per_page=1`) and render as a pill: `completed` green + relative time, `failed` red + relative time, `running` blue/pulsing, or "Never run" grey if no rows exist yet. **This column is the whole point of the feature — do not ship this screen without it.** |
 
@@ -198,6 +202,7 @@ agent — jobs are shown inside Agent Detail, not as a standalone top-level list
 | `s3_bucket_id` | select, optional | Leave unset to use the agent's own bucket (the common case). Only needed when `object_lock_enabled` is on — see below |
 | `name` | text | required |
 | `job_type` | radio/select: Files / Script | required; **changes which fields below are shown** |
+| `engine` | radio/select: rsync (default) / kopia | optional, defaults to `rsync` server-side if omitted. **Cannot be changed after creation** — omit from Edit Job entirely (§5.3). Determines which restore flow applies later (§7.1): `rsync` jobs restore current bucket state only, `kopia` jobs restore a specific historical snapshot. Consider a short inline explainer rather than assuming the customer knows the tradeoff — "rsync: simple mirror, restore always gets the latest backup" vs. "kopia: space-efficient snapshots, restore lets you pick a specific point in time." |
 | `source_paths` | repeatable text list | Files job: "Which files/folders to back up." Script job: "Where the script writes its output" (still required either way, informs what gets snapshotted) |
 | `pre_script` | code editor / textarea | **Required when `job_type = script`** — validate client-side before submit, since the API rejects an empty script with a 403 (`BackupJobsService::assertScriptHasPreScript()`). Show a placeholder example (e.g. a `mysqldump` one-liner writing to a path also listed in `source_paths`). |
 | `script_timeout_s` | number (seconds) | Only shown for `job_type = script`; default 900 |
@@ -231,11 +236,12 @@ agent — jobs are shown inside Agent Detail, not as a standalone top-level list
 `keep_last_n`, `keep_for_days`, `bandwidth_limit_mbps`, `is_enabled`.
 
 **Not editable (omit from the form entirely, don't just disable):**
-`s3_backup_agent_id`, `s3_bucket_id`, `job_type`, `object_lock_enabled` — all
-four are stripped server-side if sent (`BackupJobsService::update()`), so
-showing them as editable would be misleading. See
-`../backup.agent/updates/2026-07-04-per-job-destination-bucket.md` for why
-`s3_bucket_id` exists at all.
+`s3_backup_agent_id`, `s3_bucket_id`, `job_type`, `engine`,
+`object_lock_enabled` — all five are stripped server-side if sent
+(`BackupJobsService::update()`), so showing them as editable would be
+misleading. See `../backup.agent/updates/2026-07-04-per-job-destination-bucket.md`
+for why `s3_bucket_id` exists at all, and
+`../backup.agent/updates/2026-07-06-restore-jobs.md` for `engine`.
 
 ### 5.4 Delete Job
 
@@ -272,6 +278,13 @@ never by a person filling out a form.
 "never ran" with "ran and failed," they mean very different things for a feature
 whose entire point is surfacing exactly this distinction.
 
+**Row action — Restore (kopia jobs only):** for a `completed` run on an
+`engine=kopia` job, show a **Restore** action → opens the Trigger a Restore
+form (§7.1) pre-filled with this run's `s3_backup_job_run_id`. Don't show this
+action on `rsync` jobs' runs (they don't have one — restoring an `rsync` job
+happens from the job level, not a specific run) or on non-`completed` rows
+(nothing valid to restore from a run that failed or is still in progress).
+
 ### 6.2 Run Detail (optional for v1)
 
 If you want a dedicated detail view rather than just expanding the table row:
@@ -280,7 +293,56 @@ cross-reference against the Kopia repository directly).
 
 ---
 
-## 7. Status Pills — Additions Needed
+## 7. Restore Jobs
+
+**Read-only history, same pattern as Backup Job Runs (§6)** — restore jobs are
+written by the platform's command dispatch and the agent's result, never by a
+person filling out a form directly. The only way to *create* one is the
+Trigger a Restore form below.
+
+### 7.1 Trigger a Restore
+
+**Endpoint:** `POST /s3/backup-jobs/{jobId}/restore`
+
+Reachable two ways: the job-level **Restore** button (Job Detail, works for
+both engines), or the run-level **Restore** action on a `kopia` job's Run
+History row (§6.1, pre-fills `s3_backup_job_run_id`).
+
+**Form fields:**
+
+| Field | Input | Validation / notes |
+|---|---|---|
+| `s3_backup_job_run_id` | hidden (pre-filled) if launched from a run row; **required select** if launched from the job level on an `engine=kopia` job (pick from that job's completed runs); **must not be shown at all** for `engine=rsync` jobs | Sending this for an `rsync` job, or omitting it for a `kopia` job, gets a 422 — see §9 |
+| `destination_path` | text, required | **Never pre-fill with the job's own `source_paths`.** Restoring over the original location is allowed, but the customer must type it explicitly — this is a deliberate safety choice, not an oversight to fix |
+| `restore_paths` | repeatable text list, optional | "Which specific files to restore (leave empty to restore everything)." This is expected to be the **common** case — most customers back up a whole server/database but only want one file back (e.g. a DB dump), so don't bury this field as an "advanced" collapsed option; it's the main path, not the exception |
+
+**On submit:** `POST /s3/backup-jobs/{jobId}/restore` → toast "Restore
+started" → navigate to (or refresh) Restore History (§7.2) where the new row
+shows `pending`/`running` until the agent reports back.
+
+### 7.2 Restore History (scoped to a job)
+
+**Endpoint:** `GET /s3/restore-jobs?s3BackupJobId={jobId}&orderBy=-created_at`
+
+**Columns:**
+
+| Field | Label | Notes |
+|---|---|---|
+| `status` | Status | Pill: `completed` green, `failed` red, `running` blue, `pending` amber — same map as §8, no new colors needed |
+| `destination_path` | Destination | Monospace |
+| `restore_paths` | Files | Comma-joined list, or "All files" if empty/null |
+| `verified` | Verified | Small badge/icon next to the status pill on `completed` rows — reinforces that a completed restore was actually checksum-verified, not just "the agent said done." There is no "completed but unverified" state to design for: unverified always shows as `failed` (see `../backup.agent/updates/2026-07-06-restore-jobs.md`) |
+| `bytes_restored` | Restored | Human-readable bytes; `—` if null |
+| `triggered_by` | Trigger | Always `manual` today — restores are never schedule-driven, but keep the column for consistency with Backup Job Runs and in case that changes |
+| `started_at` / `finished_at` | Started / Finished | Same relative+absolute treatment as Run History |
+| `error` | Error | Only rendered when `status = failed`; same tooltip/expandable treatment as Run History's `error` column |
+
+**Empty state:** "No restores yet." — same "don't conflate never-happened with
+failed" reasoning as Run History's empty state (§6.1).
+
+---
+
+## 8. Status Pills — Additions Needed
 
 `ui-specification.md` §14 documents the shared `statusPillClass`/`statusDotClass`
 maps (`src/modules/s3/utils/statusPill.ts`). Backup agents introduce one status
@@ -309,26 +371,28 @@ just the raw cron string — don't block the feature on this.
 
 ---
 
-## 8. Error Handling
+## 9. Error Handling
 
-Same shape as the rest of the S3 module (`ui-specification.md` §16). One
-backup-specific case worth calling out explicitly:
+Same shape as the rest of the S3 module (`ui-specification.md` §16). Backup-
+specific cases worth calling out explicitly:
 
 | Scenario | HTTP | UI action |
 |---|---|---|
 | `pre_script` empty on a `script` job | 403 | Should be caught client-side first (§5.2); if it reaches the API anyway, show the response message as a field-level error on `pre_script` |
 | Registration token expired or already used | 403 (from the agent's own `register()` call, not a browser call) | Not directly UI-facing — but the Agent Detail "pending" banner (§4.3) should make clear the only recovery path is Revoke + Register New Agent, since there is no resend/regenerate-token action |
+| Restore request omits `s3_backup_job_run_id` for an `engine=kopia` job, or includes one for an `engine=rsync` job | 422 | Should be caught client-side first by only showing/requiring the run picker for the correct engine (§7.1); if it reaches the API anyway, show the response message as a field-level error on the run picker, not a generic toast |
 
 ---
 
-## 9. Implementation Priority Order
+## 10. Implementation Priority Order
 
 1. **Agent List + Register New Agent** (with one-time token/install-command modal) — nothing else is reachable without this
 2. **Agent Detail** with the pending-state banner
 3. **Job List with Last Run column** — this is the feature's whole value proposition; do not ship without it
-4. **Create/Edit Job**
+4. **Create/Edit Job** (including the `engine` choice)
 5. **Run Now action** + optimistic status update
 6. **Run History** (job-scoped)
-7. **Revoke agent**
-8. `pending`/`running` status pill additions
-9. Cron human-readable preview (optional)
+7. **Trigger a Restore** (job-level, and run-level for `kopia` jobs) + **Restore History** — the direct answer to "restores silently fail," don't treat as optional
+8. **Revoke agent**
+9. `pending`/`running` status pill additions
+10. Cron human-readable preview (optional)
