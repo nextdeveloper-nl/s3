@@ -61,6 +61,9 @@ class S3UserRole extends AbstractRole implements IAuthorizationRole
     public function allowedOperations(): array
     {
         return [
+            // Servers — read-only; users need this to pick a server when creating a bucket
+            's3_servers:read',
+
             // Buckets — users manage their own buckets
             's3_buckets:read',
             's3_buckets:create',
@@ -125,6 +128,7 @@ class S3UserRole extends AbstractRole implements IAuthorizationRole
             // Perspectives (read-only)
             's3_access_keys_perspective:read',
             's3_buckets_perspective:read',
+            's3_servers_perspective:read',
             's3_worm_expiring_perspective:read',
         ];
     }
