@@ -15,6 +15,7 @@ class ServersCreateRequest extends AbstractFormRequest
         return [
             'hostname' => 'required|string',
         'name' => 'nullable|string',
+        'is_public' => 'nullable|boolean',
         'tags' => '',
         ];
     }

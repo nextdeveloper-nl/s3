@@ -34,19 +34,28 @@ class S3UserRole extends AbstractRole implements IAuthorizationRole
      * Restricts queries to records owned by the current user.
      * Falls back to account scope for tables without iam_user_id.
      * Perspectives are not filtered — they provide their own scoping.
+     * Tables with is_public (e.g. s3_servers, shared infra not owned by any one
+     * account) also surface rows flagged is_public regardless of ownership.
      */
     public function apply(Builder $builder, Model $model)
     {
         $hasUserId    = DatabaseHelper::isColumnExists($model->getTable(), 'iam_user_id');
         $hasAccountId = DatabaseHelper::isColumnExists($model->getTable(), 'iam_account_id');
+        $hasIsPublic  = DatabaseHelper::isColumnExists($model->getTable(), 'is_public');
 
-        if ($hasUserId) {
-            $builder->where('iam_user_id', UserHelper::me()->id);
-        }
+        $builder->where(function (Builder $query) use ($hasUserId, $hasAccountId, $hasIsPublic) {
+            if ($hasUserId) {
+                $query->where('iam_user_id', UserHelper::me()->id);
+            }
 
-        if ($hasAccountId) {
-            $builder->where('iam_account_id', UserHelper::currentAccount()->id);
-        }
+            if ($hasAccountId) {
+                $query->where('iam_account_id', UserHelper::currentAccount()->id);
+            }
+
+            if ($hasIsPublic) {
+                $query->orWhere('is_public', true);
+            }
+        });
     }
 
     public function checkPrivileges(?Users $users = null)

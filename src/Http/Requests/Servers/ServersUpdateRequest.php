@@ -15,6 +15,7 @@ class ServersUpdateRequest extends AbstractFormRequest
         return [
             'hostname' => 'nullable|string',
         'name' => 'nullable|string',
+        'is_public' => 'nullable|boolean',
         'tags' => '',
         ];
     }

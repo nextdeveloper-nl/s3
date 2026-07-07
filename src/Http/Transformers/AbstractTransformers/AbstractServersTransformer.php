@@ -76,6 +76,7 @@ class AbstractServersTransformer extends AbstractTransformer
             'tags'  =>  $model->tags,
             'price_per_gb'  =>  $model->price_per_gb,
             'common_currency_id'  =>  $model->common_currency_id,
+            'is_public'  =>  $model->is_public,
             'created_at'  =>  $model->created_at,
             'updated_at'  =>  $model->updated_at,
             'deleted_at'  =>  $model->deleted_at,

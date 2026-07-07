@@ -240,6 +240,16 @@ class ServersQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+    public function isPublic($value)
+    {
+        return $this->builder->where('is_public', $value);
+    }
+
+        //  This is an alias function of isPublic
+    public function is_public($value)
+    {
+        return $this->isPublic($value);
+    }
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }
