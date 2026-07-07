@@ -164,6 +164,7 @@ class S3AdminRole extends AbstractRole implements IAuthorizationRole
             's3_access_keys_perspective:read',
             's3_accounts_perspective:read',
             's3_buckets_perspective:read',
+            's3_quota_alerts_perspective:read',
             's3_servers_perspective:read',
             's3_worm_expiring_perspective:read',
         ];

@@ -469,6 +469,27 @@ Route::prefix('worm-expiring-perspective')->group(
     }
 );
 
+Route::prefix('quota-alerts-perspective')->group(
+    function () {
+        Route::get('/', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@index');
+        Route::get('/actions', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@getActions');
+
+        Route::get('{s3_quota_alerts_perspective}/tags ', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@tags');
+        Route::post('{s3_quota_alerts_perspective}/tags ', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@saveTags');
+        Route::get('{s3_quota_alerts_perspective}/addresses ', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@addresses');
+        Route::post('{s3_quota_alerts_perspective}/addresses ', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@saveAddresses');
+
+        Route::get('/{s3_quota_alerts_perspective}/{subObjects}', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@relatedObjects');
+        Route::get('/{s3_quota_alerts_perspective}', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@show');
+
+        Route::post('/', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@store');
+        Route::post('/{s3_quota_alerts_perspective}/do/{action}', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@doAction');
+
+        Route::patch('/{s3_quota_alerts_perspective}', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@update');
+        Route::delete('/{s3_quota_alerts_perspective}', 'QuotaAlertsPerspective\QuotaAlertsPerspectiveController@destroy');
+    }
+);
+
 Route::prefix('backup-agents')->group(
     function () {
         Route::get('/', 'BackupAgents\BackupAgentsController@index');
