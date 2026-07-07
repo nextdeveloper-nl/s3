@@ -74,6 +74,13 @@ class AuditLogsService extends AbstractAuditLogsService
             $data['data'] = $extra;
         }
 
-        \NextDeveloper\S3\Database\Models\AuditLogs::create($data);
+        // Writing an audit log is a system-triggered side effect of an already-authorized
+        // action (e.g. reveal/revoke), not something the caller is "creating" themselves.
+        // Roles like s3-user/s3-manager only grant s3_audit_logs:read, so without bypassing
+        // the create-authorization check here, AuditLogsObserver's creating() check would
+        // throw NotAllowedException and abort the whole request.
+        \NextDeveloper\IAM\Helpers\UserHelper::withRolesCheckBypassed(
+            fn () => \NextDeveloper\S3\Database\Models\AuditLogs::create($data)
+        );
     }
 }
