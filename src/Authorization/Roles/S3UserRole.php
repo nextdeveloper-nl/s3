@@ -25,6 +25,7 @@ class S3UserRole extends AbstractRole implements IAuthorizationRole
         's3_access_keys_perspective',
         's3_accounts_perspective',
         's3_buckets_perspective',
+        's3_quota_alerts_perspective',
         's3_servers_perspective',
         's3_worm_expiring_perspective',
     ];
@@ -63,6 +64,12 @@ class S3UserRole extends AbstractRole implements IAuthorizationRole
         return [
             // Servers — read-only; users need this to pick a server when creating a bucket
             's3_servers:read',
+
+            // Account stats — read-only
+            's3_account_stats:read',
+
+            // Server capacity stats — read-only
+            's3_server_capacity_stats:read',
 
             // Buckets — users manage their own buckets
             's3_buckets:read',
@@ -127,7 +134,9 @@ class S3UserRole extends AbstractRole implements IAuthorizationRole
 
             // Perspectives (read-only)
             's3_access_keys_perspective:read',
+            's3_accounts_perspective:read',
             's3_buckets_perspective:read',
+            's3_quota_alerts_perspective:read',
             's3_servers_perspective:read',
             's3_worm_expiring_perspective:read',
         ];
