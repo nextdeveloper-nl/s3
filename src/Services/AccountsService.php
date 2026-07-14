@@ -103,6 +103,24 @@ class AccountsService extends AbstractAccountsService
     }
 
     /**
+     * Suspends the S3 account belonging to the given IAM account, if one
+     * exists. S3 accounts are opt-in (created on first subscription), so a
+     * customer without an S3 account is a no-op here, not an error.
+     */
+    public static function suspendWithIamAccount(\NextDeveloper\IAM\Database\Models\Accounts $account): ?\NextDeveloper\S3\Database\Models\Accounts
+    {
+        $s3Account = \NextDeveloper\S3\Database\Models\Accounts::withoutGlobalScopes()
+            ->where('iam_account_id', $account->id)
+            ->first();
+
+        if (!$s3Account) {
+            return null;
+        }
+
+        return self::block($s3Account->uuid, 'Account suspended.');
+    }
+
+    /**
      * Dispatch customer_block or customer_unblock to every connected agent
      * server that hosts at least one active bucket for this account.
      */
