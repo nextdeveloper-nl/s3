@@ -23,20 +23,33 @@ class AccessKeysTransformer extends AbstractAccessKeysTransformer
      */
     public function transform(AccessKeys $model)
     {
+        // AccessKeysService::create() attaches the plaintext secret as a transient,
+        // non-persisted attribute so it can be shown to the customer exactly once,
+        // right after creation. Read it before touching the cache below, since the
+        // cached payload must never contain it.
+        $plainSecret = $model->plain_secret ?? null;
+
         $transformed = Cache::get(
             CacheHelper::getKey('AccessKeys', $model->uuid, 'Transformed')
         );
 
-        if($transformed) {
-            return $transformed;
+        if (!$transformed) {
+            $transformed = parent::transform($model);
+
+            // The encrypted blob is an internal implementation detail — customers
+            // should never receive it, only the plaintext secret (below) at
+            // creation time.
+            unset($transformed['secret_key_enc']);
+
+            Cache::set(
+                CacheHelper::getKey('AccessKeys', $model->uuid, 'Transformed'),
+                $transformed
+            );
         }
 
-        $transformed = parent::transform($model);
-
-        Cache::set(
-            CacheHelper::getKey('AccessKeys', $model->uuid, 'Transformed'),
-            $transformed
-        );
+        if ($plainSecret !== null) {
+            $transformed['secret_key'] = $plainSecret;
+        }
 
         return $transformed;
     }
