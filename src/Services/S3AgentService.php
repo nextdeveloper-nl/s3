@@ -43,8 +43,21 @@ class S3AgentService
             return;
         }
 
+        $wasPending = $server->agent_status === 'pending';
+
+        // Any envelope — telemetry, alert, audit, result, anything — proves the agent
+        // is alive. Refresh the heartbeat unconditionally here rather than in each
+        // handler, so agent_last_seen_at doesn't go stale just because a given tick
+        // only produced alert/audit traffic instead of a telemetry message.
+        UserHelper::runAsAdmin(function () use ($server) {
+            $server->update([
+                'agent_status'       => 'connected',
+                'agent_last_seen_at' => now(),
+            ]);
+        });
+
         match ($type) {
-            'heartbeat'    => static::handleHeartbeat($server, $payload),
+            'heartbeat'    => static::handleHeartbeat($server, $payload, $wasPending),
             'telemetry'    => static::handleTelemetry($server, $payload),
             's3_telemetry' => static::handleS3Telemetry($server, $payload),
             's3_audit'     => static::handleS3Audit($server, $payload),
@@ -60,20 +73,17 @@ class S3AgentService
     // -------------------------------------------------------------------------
 
     /**
-     * Keep the agent_status alive and trigger a full_sync when a previously
-     * pending server comes online for the first time.
+     * Record the agent version and trigger a full_sync when a previously
+     * pending server comes online for the first time. agent_status/agent_last_seen_at
+     * are already refreshed unconditionally in handle().
      */
-    private static function handleHeartbeat(Servers $server, array $payload): void
+    private static function handleHeartbeat(Servers $server, array $payload, bool $wasPending): void
     {
-        $wasPending = $server->agent_status === 'pending';
-
-        UserHelper::runAsAdmin(function () use ($server, $payload) {
-            $server->update([
-                'agent_status'       => 'connected',
-                'agent_last_seen_at' => now(),
-                'agent_version'      => $payload['version'] ?? $server->agent_version,
-            ]);
-        });
+        if (!empty($payload['version']) && $payload['version'] !== $server->agent_version) {
+            UserHelper::runAsAdmin(function () use ($server, $payload) {
+                $server->update(['agent_version' => $payload['version']]);
+            });
+        }
 
         // First heartbeat from a newly-provisioned server: send the full desired state.
         if ($wasPending) {
@@ -92,19 +102,13 @@ class S3AgentService
      */
     private static function handleS3Telemetry(Servers $server, array $payload): void
     {
-        UserHelper::runAsAdmin(function () use ($server, $payload) {
-            $update = [
-                'agent_status'       => 'connected',
-                'agent_last_seen_at' => now(),
-            ];
-
-            // Store raw component health from the agent (master, volume, filer, s3, etc.)
-            if (!empty($payload['components'])) {
-                $update['components'] = $payload['components'];
-            }
-
-            $server->update($update);
-        });
+        // Store raw component health from the agent (master, volume, filer, s3, etc.).
+        // agent_status/agent_last_seen_at are already refreshed unconditionally in handle().
+        if (!empty($payload['components'])) {
+            UserHelper::runAsAdmin(function () use ($server, $payload) {
+                $server->update(['components' => $payload['components']]);
+            });
+        }
 
         // Update per-bucket storage stats (object_count, size_bytes, replica_health)
         static::updateBucketStatsFromTelemetry($server, $payload['buckets'] ?? []);
@@ -120,13 +124,7 @@ class S3AgentService
      */
     private static function handleTelemetry(Servers $server, array $payload): void
     {
-        // Always update the heartbeat timestamp — any telemetry proves the agent is alive.
-        UserHelper::runAsAdmin(function () use ($server) {
-            $server->update([
-                'agent_status'       => 'connected',
-                'agent_last_seen_at' => now(),
-            ]);
-        });
+        // agent_status/agent_last_seen_at are already refreshed unconditionally in handle().
 
         // Persist the snapshot — stores OS metrics now, SeaweedFS fields when available.
         ServerTelemetriesService::ingest($server->uuid, $payload);
@@ -257,7 +255,7 @@ class S3AgentService
 
             $bucket = Buckets::withoutGlobalScopes()
                 ->where('s3_server_id', $server->id)
-                ->where('name', $bucketName)
+                ->where('bucket_name', $bucketName)
                 ->whereNull('deleted_at')
                 ->first();
 
@@ -327,12 +325,9 @@ class S3AgentService
 
         if ($status === 'completed') {
             // Agent completed a command — it is reachable and healthy.
+            // agent_status/agent_last_seen_at are already refreshed unconditionally in handle().
             UserHelper::runAsAdmin(function () use ($server) {
-                $server->update([
-                    'agent_status'       => 'connected',
-                    'agent_last_seen_at' => now(),
-                    'health'             => 'healthy',
-                ]);
+                $server->update(['health' => 'healthy']);
             });
 
             // full_sync results carry bucket/IAM diff counts in the output.
@@ -409,7 +404,7 @@ class S3AgentService
             if (!array_key_exists($bucketName, $bucketCache)) {
                 $bucketCache[$bucketName] = Buckets::withoutGlobalScopes()
                     ->where('s3_server_id', $server->id)
-                    ->where('name', $bucketName)
+                    ->where('bucket_name', $bucketName)
                     ->whereNull('deleted_at')
                     ->first();
             }
