@@ -6,10 +6,12 @@ use Illuminate\Support\Facades\Log;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\AccessKeys;
+use NextDeveloper\S3\Database\Models\Accounts;
 use NextDeveloper\S3\Database\Models\Buckets;
 use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Helpers\S3KeyHelper;
 use NextDeveloper\S3\Services\AbstractServices\AbstractAccessKeysService;
+use NextDeveloper\S3\Services\AccountsService;
 use NextDeveloper\S3\Services\S3AgentCommandService;
 
 /**
@@ -33,6 +35,27 @@ class AccessKeysService extends AbstractAccessKeysService
      */
     public static function create(array $data)
     {
+        // Resolve s3_account_id from the current IAM account if not explicitly provided.
+        // If no S3 account exists yet, provision one automatically — mirrors BucketsService::create().
+        if (empty($data['s3_account_id'])) {
+            $iamAccount = UserHelper::currentAccount();
+            $s3Account = Accounts::withoutGlobalScopes()
+                ->where('iam_account_id', $iamAccount->id)
+                ->first();
+
+            if (!$s3Account) {
+                UserHelper::runAsAdmin(function () use ($iamAccount, &$s3Account) {
+                    $s3Account = AccountsService::create([
+                        'iam_account_id' => $iamAccount->id,
+                        'iam_user_id'    => UserHelper::me()->id,
+                        'slug'           => $iamAccount->slug ?? $iamAccount->uuid,
+                    ]);
+                });
+            }
+
+            $data['s3_account_id'] = $s3Account->id;
+        }
+
         $pair = S3KeyHelper::generate();
 
         $data['access_key']     = $pair['access_key'];
