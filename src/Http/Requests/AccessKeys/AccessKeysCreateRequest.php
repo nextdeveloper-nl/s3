@@ -15,7 +15,8 @@ class AccessKeysCreateRequest extends AbstractFormRequest
     public function rules()
     {
         return [
-            's3_account_id'  => 'required|exists:s3_accounts,uuid|uuid',
+            // s3_account_id is resolved automatically from the current IAM account in AccessKeysService
+
             // Customer-facing label, also sent to the storage agent as the IAM
             // identity's name/user_id — previously always blank (see AccessKeysService::create()).
             'name'           => 'nullable|string',
