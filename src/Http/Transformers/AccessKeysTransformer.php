@@ -48,7 +48,7 @@ class AccessKeysTransformer extends AbstractAccessKeysTransformer
         }
 
         if ($plainSecret !== null) {
-            $transformed['secret_key'] = $plainSecret;
+            $transformed['secret_key_enc'] = $plainSecret;
         }
 
         return $transformed;
