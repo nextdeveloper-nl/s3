@@ -25,6 +25,12 @@ The UI should render both views. Use `*-perspective` endpoints for customer-faci
 > see [`backup-agent-ui-specification.md`](backup-agent-ui-specification.md) —
 > since it's a large enough feature area to document separately. It sits in this
 > same nav tree, between Access Keys and Usage & Billing.
+>
+> **Storage Packages & Billing** (per-server pricing, subscribe/change package,
+> admin package management) also has its own companion spec — see
+> [`packaging-billing-ui-specification.md`](packaging-billing-ui-specification.md).
+> It extends the Servers section (§13) and Usage & Billing (adds a
+> "My Storage Plan(s)" page).
 
 ```
 S3 Module
@@ -41,14 +47,15 @@ S3 Module
 ├── Usage & Billing
 │   ├── Bandwidth (monthly)
 │   ├── Deposit Ledger (WORM billing)
-│   └── Usage Snapshots
+│   ├── Usage Snapshots
+│   └── My Storage Plan(s) (see packaging-billing-ui-specification.md)
 ├── Webhooks
 │   ├── List
 │   └── Webhook Deliveries
 └── [Admin Only]
     ├── Servers
-    │   ├── List
-    │   └── Server Detail (capacity, telemetry)
+    │   ├── List (customers can also read this — see packaging-billing-ui-specification.md)
+    │   └── Server Detail (capacity, telemetry, Packages tab)
     ├── Accounts (all customers)
     └── Audit Logs (all)
 ```
@@ -69,12 +76,18 @@ S3 Module
 | Deposit Ledger | `GET /s3/deposit-ledger` | same |
 | Bandwidth | `GET /s3/bandwidth-monthly` | same |
 | Usage Snapshots | `GET /s3/usage-snapshots` | same |
-| Servers | — | `GET /s3/servers` |
+| Servers | `GET /s3/servers` (read-only) | `GET /s3/servers` (full CRUD) |
 | Server Capacity | — | `GET /s3/server-capacity-stats` |
+| Storage Packages | `GET /marketplace/product-catalogs?filter[marketplace_product_id]=...` | `GET/POST/PATCH/DELETE /marketplace/product-catalogs` |
 | Webhooks | `GET /s3/webhooks` | same |
 | Webhook Deliveries | `GET /s3/webhook-deliveries` | same |
 
 All list endpoints support query-string filtering by any field. All single-record endpoints: `GET /s3/{resource}/{uuid}`.
+
+Customers can list Servers (read-only, so they can pick one when creating a
+bucket and browse its packages) but cannot create/edit/delete them. Storage
+Packages — subscribing, changing, and admin package management — has its own
+companion spec: [`packaging-billing-ui-specification.md`](packaging-billing-ui-specification.md).
 
 Actions (non-CRUD operations) are dispatched via: `POST /s3/{resource}/{uuid}/do/{action}`
 
@@ -110,6 +123,12 @@ Actions (non-CRUD operations) are dispatched via: `POST /s3/{resource}/{uuid}/do
 
 **Quick actions on dashboard:**
 - "Create Bucket" → opens bucket create form
+- "My Storage Plan(s)" widget/link → see
+  [`packaging-billing-ui-specification.md`](packaging-billing-ui-specification.md) §5.3.
+  Note this reads from a different endpoint (`s3/servers` + `s3/accounts-perspective`),
+  not `account-stats` above — the two new egress fields
+  (`included_egress_bytes_mo`, `egress_overage_bytes`) live on
+  `accounts-perspective`, not here.
 - "Create Access Key" → opens access key create form
 
 ---
@@ -456,7 +475,14 @@ Filter by `s3_webhook_id`. Show: event type, delivery status (success/failed), H
 
 ---
 
-## 13. Servers (Admin Only)
+## 13. Servers
+
+Customers can **read** this list (to pick a server when creating a bucket and
+to browse its packages); create/edit/delete remain admin-only. See
+[`packaging-billing-ui-specification.md`](packaging-billing-ui-specification.md)
+for the packaging-related fields/actions this list also carries
+(`marketplace_product_id`, `my_active_package`) and the new admin
+"Packages" tab on Server Detail.
 
 ### 13.1 Server List
 
@@ -472,13 +498,16 @@ Filter by `s3_webhook_id`. Show: event type, delivery status (success/failed), H
 | `health` | Health | `healthy`, `degraded`, `unknown` |
 | `seaweedfs_version` | Version | |
 | `agent_last_seen_at` | Last Seen | Relative time |
-| `price_per_gb` | Price/GB/mo | |
+| `price_per_gb` | Price/GB/mo | Base per-GB rate; see companion spec for how packages price against this |
+| `my_active_package` | My Package | Customer view only — see companion spec §4 |
 | `created_at` | Created | |
 
 **Actions:**
-- Create server: `POST /s3/servers`
-- Edit (PATCH) — update `price_per_gb`, `common_currency_id`, `name`
+- Create server (admin only): `POST /s3/servers`
+- Edit (admin only, PATCH) — update `price_per_gb`, `common_currency_id`, `name`
 - View capacity stats → links to `/s3/server-capacity-stats?s3_server_id={id}`
+- Browse/Subscribe/Change Package (all accounts) — see companion spec §4.2, §5
+- Manage Packages (admin only) → companion spec §6
 
 ### 13.2 Server Capacity Stats
 

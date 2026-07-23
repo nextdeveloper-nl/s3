@@ -57,6 +57,10 @@ class AbstractServersTransformer extends AbstractTransformer
                                                 $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
                                                             $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
 
+        $marketplaceProduct = $model->marketplace_product_id
+            ? \NextDeveloper\Marketplace\Database\Models\Products::withoutGlobalScopes()->where('id', $model->marketplace_product_id)->first()
+            : null;
+
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,
@@ -77,11 +81,32 @@ class AbstractServersTransformer extends AbstractTransformer
             'price_per_gb'  =>  $model->price_per_gb,
             'common_currency_id'  =>  $model->common_currency_id,
             'is_public'  =>  $model->is_public,
+            'marketplace_product_id'  =>  $marketplaceProduct ? $marketplaceProduct->uuid : null,
+            'my_active_package'  =>  $this->getMyActivePackage($model),
             'created_at'  =>  $model->created_at,
             'updated_at'  =>  $model->updated_at,
             'deleted_at'  =>  $model->deleted_at,
             ]
         );
+    }
+
+    /**
+     * The current user's active subscription for this server's product, if
+     * any. Delegates to AccountsService::getActivePackageForServer(), which
+     * resolves this off the 'fee' role Marketplace\Subscriptions row
+     * created by AccountsService::subscribeToServerPackage() — works
+     * identically whether the active package is a paid tier or the $0
+     * Pay-As-You-Go package.
+     */
+    private function getMyActivePackage(Servers $model): ?array
+    {
+        $account = \NextDeveloper\IAM\Helpers\UserHelper::currentAccount();
+
+        if (!$account) {
+            return null;
+        }
+
+        return \NextDeveloper\S3\Services\AccountsService::getActivePackageForServer($account->id, $model);
     }
 
     public function includeStates(Servers $model)
