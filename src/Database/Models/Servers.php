@@ -36,6 +36,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property float $price_per_gb
  * @property integer $common_currency_id
  * @property boolean $is_public
+ * @property integer $marketplace_product_id
  * @property array $tags
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
@@ -73,6 +74,7 @@ class Servers extends Model
             'price_per_gb',
             'common_currency_id',
             'is_public',
+            'marketplace_product_id',
             'tags',
     ];
 
@@ -111,6 +113,7 @@ class Servers extends Model
     'price_per_gb' => 'float',
     'common_currency_id' => 'integer',
     'is_public' => 'boolean',
+    'marketplace_product_id' => 'integer',
     'tags' => \NextDeveloper\Commons\Database\Casts\TextArray::class,
     'created_at' => 'datetime',
     'updated_at' => 'datetime',

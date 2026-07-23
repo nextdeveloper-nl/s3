@@ -86,6 +86,8 @@ class AbstractAccountsPerspectiveTransformer extends AbstractTransformer
             'active_key_count'  =>  $model->active_key_count,
             'current_month_egress_bytes'  =>  $model->current_month_egress_bytes,
             'current_month_ingress_bytes'  =>  $model->current_month_ingress_bytes,
+            'included_egress_bytes_mo'  =>  $model->included_egress_bytes_mo,
+            'egress_overage_bytes'  =>  $model->egress_overage_bytes,
             ]
         );
     }

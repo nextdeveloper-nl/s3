@@ -1,0 +1,21 @@
+-- PostgreSQL
+-- s3_accounts_perspective is a database VIEW with no reference SQL tracked
+-- in this repo (unlike s3_quota_alerts_perspective.sql, authored from
+-- scratch). This session added two new columns to the Eloquent model
+-- (Database/Models/AccountsPerspective.php) and its transformer that the
+-- LIVE view does not yet expose:
+--
+--   included_egress_bytes_mo  -- passthrough of s3_accounts.included_egress_bytes_mo
+--   egress_overage_bytes      -- GREATEST(current_month_egress_bytes - included_egress_bytes_mo, 0)
+--
+-- Before these fields will return real data, pull the view's current
+-- definition (e.g. `SELECT pg_get_viewdef('s3_accounts_perspective', true)`
+-- or `\d+ s3_accounts_perspective` against the target database) and add:
+--
+--   a.included_egress_bytes_mo AS included_egress_bytes_mo,
+--   GREATEST(current_month_egress_bytes - a.included_egress_bytes_mo, 0) AS egress_overage_bytes
+--
+-- to its SELECT list (joining s3_accounts as `a` the same way the view
+-- already must for storage_bytes_used/quota_* etc.), then apply as a fresh
+-- CREATE OR REPLACE VIEW. Not done here since the current view body isn't
+-- available in this repo or session.

@@ -46,6 +46,8 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $active_key_count
  * @property integer $current_month_egress_bytes
  * @property integer $current_month_ingress_bytes
+ * @property integer $included_egress_bytes_mo
+ * @property integer $egress_overage_bytes
  */
 class AccountsPerspective extends Model
 {
@@ -86,6 +88,8 @@ class AccountsPerspective extends Model
             'active_key_count',
             'current_month_egress_bytes',
             'current_month_ingress_bytes',
+            'included_egress_bytes_mo',
+            'egress_overage_bytes',
     ];
 
     /**
@@ -129,6 +133,8 @@ class AccountsPerspective extends Model
     'active_key_count' => 'integer',
     'current_month_egress_bytes' => 'integer',
     'current_month_ingress_bytes' => 'integer',
+    'included_egress_bytes_mo' => 'integer',
+    'egress_overage_bytes' => 'integer',
     ];
 
     /**
