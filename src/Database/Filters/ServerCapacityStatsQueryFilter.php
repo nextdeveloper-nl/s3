@@ -17,25 +17,25 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function hostname($value)
     {
         return $this->builder->where('hostname', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function health($value)
     {
         return $this->builder->where('health', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function agentStatus($value)
     {
         return $this->builder->where('agent_status', 'ilike', '%' . $value . '%');
@@ -46,7 +46,7 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->agentStatus($value);
     }
-    
+
     public function volumeCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -65,7 +65,7 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->volumeCount($value);
     }
-    
+
     public function volumesDegraded($value)
     {
         $operator = substr($value, 0, 1);
@@ -84,7 +84,7 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->volumesDegraded($value);
     }
-    
+
     public function capacityBytesTotal($value)
     {
         $operator = substr($value, 0, 1);
@@ -103,7 +103,7 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->capacityBytesTotal($value);
     }
-    
+
     public function capacityBytesUsed($value)
     {
         $operator = substr($value, 0, 1);
@@ -122,7 +122,7 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->capacityBytesUsed($value);
     }
-    
+
     public function hostedBucketCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -141,7 +141,7 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->hostedBucketCount($value);
     }
-    
+
     public function hostedAccountCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -160,7 +160,7 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->hostedAccountCount($value);
     }
-    
+
     public function agentLastSeenAtStart($date)
     {
         return $this->builder->where('agent_last_seen_at', '>=', $date);
@@ -219,6 +219,6 @@ class ServerCapacityStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Server($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

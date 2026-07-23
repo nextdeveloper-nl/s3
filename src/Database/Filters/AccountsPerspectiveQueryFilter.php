@@ -37,19 +37,19 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function slug($value)
     {
         return $this->builder->where('slug', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function blockedReason($value)
     {
         return $this->builder->where('blocked_reason', 'ilike', '%' . $value . '%');
@@ -60,7 +60,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->blockedReason($value);
     }
-    
+
     public function quotaStorageBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -79,7 +79,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaStorageBytes($value);
     }
-    
+
     public function quotaEgressBytesMo($value)
     {
         $operator = substr($value, 0, 1);
@@ -98,7 +98,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaEgressBytesMo($value);
     }
-    
+
     public function quotaMaxBuckets($value)
     {
         $operator = substr($value, 0, 1);
@@ -117,7 +117,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaMaxBuckets($value);
     }
-    
+
     public function quotaMaxObjects($value)
     {
         $operator = substr($value, 0, 1);
@@ -136,7 +136,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaMaxObjects($value);
     }
-    
+
     public function storageBytesUsed($value)
     {
         $operator = substr($value, 0, 1);
@@ -155,7 +155,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->storageBytesUsed($value);
     }
-    
+
     public function egressBytesMoUsed($value)
     {
         $operator = substr($value, 0, 1);
@@ -174,7 +174,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->egressBytesMoUsed($value);
     }
-    
+
     public function objectCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -193,7 +193,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->objectCount($value);
     }
-    
+
     public function bucketCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -212,7 +212,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->bucketCount($value);
     }
-    
+
     public function activeKeyCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -231,7 +231,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->activeKeyCount($value);
     }
-    
+
     public function currentMonthEgressBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -250,7 +250,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->currentMonthEgressBytes($value);
     }
-    
+
     public function currentMonthIngressBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -269,7 +269,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->currentMonthIngressBytes($value);
     }
-    
+
     public function usageCheckedAtStart($date)
     {
         return $this->builder->where('usage_checked_at', '>=', $date);
@@ -389,7 +389,7 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -399,6 +399,6 @@ class AccountsPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

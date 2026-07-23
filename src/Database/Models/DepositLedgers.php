@@ -150,11 +150,11 @@ class DepositLedgers extends Model
     {
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\Accounts::class);
     }
-    
+
     public function wormCommitments() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\WormCommitments::class);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

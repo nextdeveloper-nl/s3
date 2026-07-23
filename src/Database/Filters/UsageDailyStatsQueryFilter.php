@@ -17,13 +17,13 @@ class UsageDailyStatsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function slug($value)
     {
         return $this->builder->where('slug', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function storageBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -42,7 +42,7 @@ class UsageDailyStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->storageBytes($value);
     }
-    
+
     public function objectCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -61,7 +61,7 @@ class UsageDailyStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->objectCount($value);
     }
-    
+
     public function statDateStart($date)
     {
         return $this->builder->where('stat_date', '>=', $date);
@@ -98,7 +98,7 @@ class UsageDailyStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -108,6 +108,6 @@ class UsageDailyStatsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

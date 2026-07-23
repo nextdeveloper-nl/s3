@@ -36,7 +36,7 @@ class BandwidthMonthliesQueryFilter extends AbstractQueryFilter
     {
         return $this->egressBytes($value);
     }
-    
+
     public function ingressBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -55,7 +55,7 @@ class BandwidthMonthliesQueryFilter extends AbstractQueryFilter
     {
         return $this->ingressBytes($value);
     }
-    
+
     public function monthStart($date)
     {
         return $this->builder->where('month', '>=', $date);
@@ -114,7 +114,7 @@ class BandwidthMonthliesQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -124,6 +124,6 @@ class BandwidthMonthliesQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

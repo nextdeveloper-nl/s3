@@ -37,19 +37,19 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function hostname($value)
     {
         return $this->builder->where('hostname', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function agentVersion($value)
     {
         return $this->builder->where('agent_version', 'ilike', '%' . $value . '%');
@@ -60,7 +60,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->agentVersion($value);
     }
-        
+
     public function seaweedfsVersion($value)
     {
         return $this->builder->where('seaweedfs_version', 'ilike', '%' . $value . '%');
@@ -71,7 +71,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->seaweedfsVersion($value);
     }
-        
+
     public function agentStatus($value)
     {
         return $this->builder->where('agent_status', 'ilike', '%' . $value . '%');
@@ -82,13 +82,13 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->agentStatus($value);
     }
-        
+
     public function health($value)
     {
         return $this->builder->where('health', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function healthSummary($value)
     {
         return $this->builder->where('health_summary', 'ilike', '%' . $value . '%');
@@ -99,7 +99,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->healthSummary($value);
     }
-    
+
     public function masterPeers($value)
     {
         $operator = substr($value, 0, 1);
@@ -118,7 +118,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->masterPeers($value);
     }
-    
+
     public function volumeTotal($value)
     {
         $operator = substr($value, 0, 1);
@@ -137,7 +137,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->volumeTotal($value);
     }
-    
+
     public function volumesWritable($value)
     {
         $operator = substr($value, 0, 1);
@@ -156,7 +156,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->volumesWritable($value);
     }
-    
+
     public function volumesDegraded($value)
     {
         $operator = substr($value, 0, 1);
@@ -175,7 +175,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->volumesDegraded($value);
     }
-    
+
     public function volumesReadonly($value)
     {
         $operator = substr($value, 0, 1);
@@ -194,7 +194,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->volumesReadonly($value);
     }
-    
+
     public function capacityBytesTotal($value)
     {
         $operator = substr($value, 0, 1);
@@ -213,7 +213,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->capacityBytesTotal($value);
     }
-    
+
     public function capacityBytesUsed($value)
     {
         $operator = substr($value, 0, 1);
@@ -232,7 +232,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->capacityBytesUsed($value);
     }
-    
+
     public function s3BucketCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -251,7 +251,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->s3BucketCount($value);
     }
-    
+
     public function hostedBucketCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -270,7 +270,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->hostedBucketCount($value);
     }
-    
+
     public function hostedAccountCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -289,7 +289,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->hostedAccountCount($value);
     }
-    
+
     public function agentLastSeenAtStart($date)
     {
         return $this->builder->where('agent_last_seen_at', '>=', $date);
@@ -409,7 +409,7 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -419,6 +419,6 @@ class ServersPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

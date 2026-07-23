@@ -55,7 +55,7 @@ class AbstractServerTelemetriesTransformer extends AbstractTransformer
     public function transform(ServerTelemetries $model)
     {
                                                 $s3ServerId = \NextDeveloper\S3\Database\Models\Servers::where('id', $model->s3_server_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->id,

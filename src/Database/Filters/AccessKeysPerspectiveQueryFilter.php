@@ -37,7 +37,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function accessKey($value)
     {
         return $this->builder->where('access_key', 'ilike', '%' . $value . '%');
@@ -48,19 +48,19 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->accessKey($value);
     }
-        
+
     public function role($value)
     {
         return $this->builder->where('role', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function revokedReason($value)
     {
         return $this->builder->where('revoked_reason', 'ilike', '%' . $value . '%');
@@ -71,7 +71,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->revokedReason($value);
     }
-        
+
     public function s3AccountSlug($value)
     {
         return $this->builder->where('s3_account_slug', 'ilike', '%' . $value . '%');
@@ -82,7 +82,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->s3AccountSlug($value);
     }
-    
+
     public function expiresInDays($value)
     {
         $operator = substr($value, 0, 1);
@@ -101,7 +101,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->expiresInDays($value);
     }
-    
+
     public function isExpired($value)
     {
         return $this->builder->where('is_expired', $value);
@@ -112,7 +112,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->isExpired($value);
     }
-     
+
     public function isExpiringSoon($value)
     {
         return $this->builder->where('is_expiring_soon', $value);
@@ -123,7 +123,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->isExpiringSoon($value);
     }
-     
+
     public function expiresAtStart($date)
     {
         return $this->builder->where('expires_at', '>=', $date);
@@ -270,7 +270,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -280,7 +280,7 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -290,6 +290,6 @@ class AccessKeysPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

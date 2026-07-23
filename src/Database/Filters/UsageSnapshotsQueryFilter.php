@@ -36,7 +36,7 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
     {
         return $this->storageBytes($value);
     }
-    
+
     public function objectCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -55,7 +55,7 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
     {
         return $this->objectCount($value);
     }
-    
+
     public function snapshotAtStart($date)
     {
         return $this->builder->where('snapshot_at', '>=', $date);
@@ -92,7 +92,7 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -102,6 +102,6 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

@@ -17,7 +17,7 @@ class WebhookDeliveriesQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function eventType($value)
     {
         return $this->builder->where('event_type', 'ilike', '%' . $value . '%');
@@ -28,7 +28,7 @@ class WebhookDeliveriesQueryFilter extends AbstractQueryFilter
     {
         return $this->eventType($value);
     }
-        
+
     public function objectKey($value)
     {
         return $this->builder->where('object_key', 'ilike', '%' . $value . '%');
@@ -39,7 +39,7 @@ class WebhookDeliveriesQueryFilter extends AbstractQueryFilter
     {
         return $this->objectKey($value);
     }
-    
+
     public function statusCode($value)
     {
         $operator = substr($value, 0, 1);
@@ -58,7 +58,7 @@ class WebhookDeliveriesQueryFilter extends AbstractQueryFilter
     {
         return $this->statusCode($value);
     }
-    
+
     public function attempt($value)
     {
         $operator = substr($value, 0, 1);
@@ -72,7 +72,7 @@ class WebhookDeliveriesQueryFilter extends AbstractQueryFilter
         return $this->builder->where('attempt', $operator, $value);
     }
 
-    
+
     public function nextRetryAtStart($date)
     {
         return $this->builder->where('next_retry_at', '>=', $date);
@@ -153,7 +153,7 @@ class WebhookDeliveriesQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Webhook($value);
     }
-    
+
     public function s3AccountId($value)
     {
             $s3Account = \NextDeveloper\S3\Database\Models\Accounts::where('uuid', $value)->first();
@@ -168,6 +168,6 @@ class WebhookDeliveriesQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

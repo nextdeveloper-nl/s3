@@ -17,13 +17,13 @@ class NotificationsSentsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function notification($value)
     {
         return $this->builder->where('notification', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function monthStart($date)
     {
         return $this->builder->where('month', '>=', $date);
@@ -82,7 +82,7 @@ class NotificationsSentsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -92,6 +92,6 @@ class NotificationsSentsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

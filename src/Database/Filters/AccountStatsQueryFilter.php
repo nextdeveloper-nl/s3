@@ -17,19 +17,19 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function slug($value)
     {
         return $this->builder->where('slug', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function blockedReason($value)
     {
         return $this->builder->where('blocked_reason', 'ilike', '%' . $value . '%');
@@ -40,7 +40,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->blockedReason($value);
     }
-    
+
     public function quotaStorageBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -59,7 +59,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaStorageBytes($value);
     }
-    
+
     public function storageBytesUsed($value)
     {
         $operator = substr($value, 0, 1);
@@ -78,7 +78,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->storageBytesUsed($value);
     }
-    
+
     public function quotaEgressBytesMo($value)
     {
         $operator = substr($value, 0, 1);
@@ -97,7 +97,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaEgressBytesMo($value);
     }
-    
+
     public function egressBytesMoUsed($value)
     {
         $operator = substr($value, 0, 1);
@@ -116,7 +116,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->egressBytesMoUsed($value);
     }
-    
+
     public function quotaMaxObjects($value)
     {
         $operator = substr($value, 0, 1);
@@ -135,7 +135,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaMaxObjects($value);
     }
-    
+
     public function objectCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -154,7 +154,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->objectCount($value);
     }
-    
+
     public function quotaMaxBuckets($value)
     {
         $operator = substr($value, 0, 1);
@@ -173,7 +173,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaMaxBuckets($value);
     }
-    
+
     public function bucketCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -192,7 +192,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->bucketCount($value);
     }
-    
+
     public function activeKeyCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -211,7 +211,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->activeKeyCount($value);
     }
-    
+
     public function inProgressUploadCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -230,7 +230,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->inProgressUploadCount($value);
     }
-    
+
     public function pausedWebhookCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -249,7 +249,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->pausedWebhookCount($value);
     }
-    
+
     public function currentMonthEgressBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -268,7 +268,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->currentMonthEgressBytes($value);
     }
-    
+
     public function currentMonthIngressBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -287,7 +287,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->currentMonthIngressBytes($value);
     }
-    
+
     public function blockedAtStart($date)
     {
         return $this->builder->where('blocked_at', '>=', $date);
@@ -346,7 +346,7 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -356,6 +356,6 @@ class AccountStatsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

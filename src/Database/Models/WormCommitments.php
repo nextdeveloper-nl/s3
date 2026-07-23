@@ -172,12 +172,12 @@ class WormCommitments extends Model
     {
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\Buckets::class);
     }
-    
+
     public function accounts() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\Accounts::class);
     }
-    
+
     public function depositLedgers() : \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\NextDeveloper\S3\Database\Models\DepositLedgers::class);

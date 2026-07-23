@@ -37,7 +37,7 @@ class AccessKeysQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function accessKey($value)
     {
         return $this->builder->where('access_key', 'ilike', '%' . $value . '%');
@@ -48,7 +48,7 @@ class AccessKeysQueryFilter extends AbstractQueryFilter
     {
         return $this->accessKey($value);
     }
-        
+
     public function secretKeyEnc($value)
     {
         return $this->builder->where('secret_key_enc', 'ilike', '%' . $value . '%');
@@ -59,19 +59,19 @@ class AccessKeysQueryFilter extends AbstractQueryFilter
     {
         return $this->secretKeyEnc($value);
     }
-        
+
     public function role($value)
     {
         return $this->builder->where('role', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function revokedReason($value)
     {
         return $this->builder->where('revoked_reason', 'ilike', '%' . $value . '%');
@@ -82,7 +82,7 @@ class AccessKeysQueryFilter extends AbstractQueryFilter
     {
         return $this->revokedReason($value);
     }
-    
+
     public function expiresAtStart($date)
     {
         return $this->builder->where('expires_at', '>=', $date);
@@ -229,7 +229,7 @@ class AccessKeysQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -239,7 +239,7 @@ class AccessKeysQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -249,6 +249,6 @@ class AccessKeysQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

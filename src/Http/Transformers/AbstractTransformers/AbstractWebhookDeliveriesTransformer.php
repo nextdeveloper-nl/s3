@@ -56,7 +56,7 @@ class AbstractWebhookDeliveriesTransformer extends AbstractTransformer
     {
                                                 $s3WebhookId = \NextDeveloper\S3\Database\Models\Webhooks::where('id', $model->s3_webhook_id)->first();
                                                             $s3AccountId = \NextDeveloper\S3\Database\Models\Accounts::where('id', $model->s3_account_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->id,

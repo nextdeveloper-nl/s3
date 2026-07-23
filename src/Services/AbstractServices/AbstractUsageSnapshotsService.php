@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractUsageSnapshotsService
 {
-    public static function get(UsageSnapshotsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?UsageSnapshotsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -196,11 +196,11 @@ class AbstractUsageSnapshotsService
                 $data['iam_account_id']
             );
         }
-            
+
         if(!array_key_exists('iam_account_id', $data)) {
             $data['iam_account_id'] = UserHelper::currentAccount()->id;
         }
-                        
+
         try {
             $model = UsageSnapshots::create($data);
         } catch(\Exception $e) {
@@ -258,7 +258,7 @@ class AbstractUsageSnapshotsService
                 $data['iam_account_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

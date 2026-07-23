@@ -57,7 +57,7 @@ class AbstractDepositLedgersTransformer extends AbstractTransformer
                                                 $s3AccountId = \NextDeveloper\S3\Database\Models\Accounts::where('id', $model->s3_account_id)->first();
                                                             $s3WormCommitmentId = \NextDeveloper\S3\Database\Models\WormCommitments::where('id', $model->s3_worm_commitment_id)->first();
                                                             $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->id,

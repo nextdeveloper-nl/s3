@@ -37,19 +37,19 @@ class ServersQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function hostname($value)
     {
         return $this->builder->where('hostname', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function agentApiKey($value)
     {
         return $this->builder->where('agent_api_key', 'ilike', '%' . $value . '%');
@@ -60,7 +60,7 @@ class ServersQueryFilter extends AbstractQueryFilter
     {
         return $this->agentApiKey($value);
     }
-        
+
     public function agentVersion($value)
     {
         return $this->builder->where('agent_version', 'ilike', '%' . $value . '%');
@@ -71,7 +71,7 @@ class ServersQueryFilter extends AbstractQueryFilter
     {
         return $this->agentVersion($value);
     }
-        
+
     public function seaweedfsVersion($value)
     {
         return $this->builder->where('seaweedfs_version', 'ilike', '%' . $value . '%');
@@ -82,7 +82,7 @@ class ServersQueryFilter extends AbstractQueryFilter
     {
         return $this->seaweedfsVersion($value);
     }
-        
+
     public function agentStatus($value)
     {
         return $this->builder->where('agent_status', 'ilike', '%' . $value . '%');
@@ -93,13 +93,13 @@ class ServersQueryFilter extends AbstractQueryFilter
     {
         return $this->agentStatus($value);
     }
-        
+
     public function health($value)
     {
         return $this->builder->where('health', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function healthSummary($value)
     {
         return $this->builder->where('health_summary', 'ilike', '%' . $value . '%');
@@ -110,7 +110,7 @@ class ServersQueryFilter extends AbstractQueryFilter
     {
         return $this->healthSummary($value);
     }
-    
+
     public function agentLastSeenAtStart($date)
     {
         return $this->builder->where('agent_last_seen_at', '>=', $date);
@@ -230,7 +230,7 @@ class ServersQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
