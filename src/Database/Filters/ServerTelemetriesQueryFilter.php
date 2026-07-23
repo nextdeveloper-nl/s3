@@ -36,7 +36,7 @@ class ServerTelemetriesQueryFilter extends AbstractQueryFilter
     {
         return $this->volumeCount($value);
     }
-    
+
     public function volumesDegraded($value)
     {
         $operator = substr($value, 0, 1);
@@ -55,7 +55,7 @@ class ServerTelemetriesQueryFilter extends AbstractQueryFilter
     {
         return $this->volumesDegraded($value);
     }
-    
+
     public function capacityBytesTotal($value)
     {
         $operator = substr($value, 0, 1);
@@ -74,7 +74,7 @@ class ServerTelemetriesQueryFilter extends AbstractQueryFilter
     {
         return $this->capacityBytesTotal($value);
     }
-    
+
     public function capacityBytesUsed($value)
     {
         $operator = substr($value, 0, 1);
@@ -93,7 +93,7 @@ class ServerTelemetriesQueryFilter extends AbstractQueryFilter
     {
         return $this->capacityBytesUsed($value);
     }
-    
+
     public function reportedAtStart($date)
     {
         return $this->builder->where('reported_at', '>=', $date);
@@ -130,6 +130,6 @@ class ServerTelemetriesQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Server($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

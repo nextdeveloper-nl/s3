@@ -17,13 +17,13 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function action($value)
     {
         return $this->builder->where('action', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function performedBy($value)
     {
         return $this->builder->where('performed_by', 'ilike', '%' . $value . '%');
@@ -34,13 +34,13 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
     {
         return $this->performedBy($value);
     }
-        
+
     public function reason($value)
     {
         return $this->builder->where('reason', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function performedAtStart($date)
     {
         return $this->builder->where('performed_at', '>=', $date);
@@ -72,7 +72,7 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -82,7 +82,7 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function s3AccountId($value)
     {
             $s3Account = \NextDeveloper\S3\Database\Models\Accounts::where('uuid', $value)->first();
@@ -97,7 +97,7 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function s3ServerId($value)
     {
             $s3Server = \NextDeveloper\S3\Database\Models\Servers::where('uuid', $value)->first();
@@ -112,7 +112,7 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Server($value);
     }
-    
+
     public function s3AccessKeyId($value)
     {
             $s3AccessKey = \NextDeveloper\S3\Database\Models\AccessKeys::where('uuid', $value)->first();
@@ -127,7 +127,7 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3AccessKey($value);
     }
-    
+
     public function s3BucketId($value)
     {
             $s3Bucket = \NextDeveloper\S3\Database\Models\Buckets::where('uuid', $value)->first();
@@ -142,7 +142,7 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Bucket($value);
     }
-    
+
     public function s3WormCommitmentId($value)
     {
             $s3WormCommitment = \NextDeveloper\S3\Database\Models\WormCommitments::where('uuid', $value)->first();
@@ -157,6 +157,6 @@ class AuditLogsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3WormCommitment($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

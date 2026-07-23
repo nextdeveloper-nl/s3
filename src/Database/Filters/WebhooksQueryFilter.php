@@ -37,7 +37,7 @@ class WebhooksQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function endpointUrl($value)
     {
         return $this->builder->where('endpoint_url', 'ilike', '%' . $value . '%');
@@ -48,19 +48,19 @@ class WebhooksQueryFilter extends AbstractQueryFilter
     {
         return $this->endpointUrl($value);
     }
-        
+
     public function secret($value)
     {
         return $this->builder->where('secret', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function failureCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -79,7 +79,7 @@ class WebhooksQueryFilter extends AbstractQueryFilter
     {
         return $this->failureCount($value);
     }
-    
+
     public function pausedAtStart($date)
     {
         return $this->builder->where('paused_at', '>=', $date);
@@ -182,7 +182,7 @@ class WebhooksQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function s3BucketId($value)
     {
             $s3Bucket = \NextDeveloper\S3\Database\Models\Buckets::where('uuid', $value)->first();
@@ -197,7 +197,7 @@ class WebhooksQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Bucket($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -207,7 +207,7 @@ class WebhooksQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -217,6 +217,6 @@ class WebhooksQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

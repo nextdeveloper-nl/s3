@@ -37,19 +37,19 @@ class BucketsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function versioning($value)
     {
         return $this->builder->where('versioning', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function objectLockMode($value)
     {
         return $this->builder->where('object_lock_mode', 'ilike', '%' . $value . '%');
@@ -60,7 +60,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->objectLockMode($value);
     }
-        
+
     public function replicaHealth($value)
     {
         return $this->builder->where('replica_health', 'ilike', '%' . $value . '%');
@@ -71,13 +71,13 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->replicaHealth($value);
     }
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function replicationFactor($value)
     {
         $operator = substr($value, 0, 1);
@@ -96,7 +96,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->replicationFactor($value);
     }
-    
+
     public function objectLockDays($value)
     {
         $operator = substr($value, 0, 1);
@@ -115,7 +115,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->objectLockDays($value);
     }
-    
+
     public function objectCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -134,7 +134,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->objectCount($value);
     }
-    
+
     public function sizeBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -153,7 +153,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->sizeBytes($value);
     }
-    
+
     public function createdAtStart($date)
     {
         return $this->builder->where('created_at', '>=', $date);
@@ -234,7 +234,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function s3ServerId($value)
     {
             $s3Server = \NextDeveloper\S3\Database\Models\Servers::where('uuid', $value)->first();
@@ -249,7 +249,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Server($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -259,7 +259,7 @@ class BucketsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -269,6 +269,6 @@ class BucketsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

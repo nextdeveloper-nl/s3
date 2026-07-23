@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractServerTelemetriesService
 {
-    public static function get(ServerTelemetriesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?ServerTelemetriesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -190,7 +190,7 @@ class AbstractServerTelemetriesService
                 $data['s3_server_id']
             );
         }
-                        
+
         try {
             $model = ServerTelemetries::create($data);
         } catch(\Exception $e) {
@@ -242,7 +242,7 @@ class AbstractServerTelemetriesService
                 $data['s3_server_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

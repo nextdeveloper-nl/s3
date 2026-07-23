@@ -17,19 +17,19 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function mode($value)
     {
         return $this->builder->where('mode', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function s3AccountSlug($value)
     {
         return $this->builder->where('s3_account_slug', 'ilike', '%' . $value . '%');
@@ -40,7 +40,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->s3AccountSlug($value);
     }
-        
+
     public function bucketName($value)
     {
         return $this->builder->where('bucket_name', 'ilike', '%' . $value . '%');
@@ -51,7 +51,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->bucketName($value);
     }
-    
+
     public function retentionDays($value)
     {
         $operator = substr($value, 0, 1);
@@ -70,7 +70,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->retentionDays($value);
     }
-    
+
     public function quotaBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -89,7 +89,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaBytes($value);
     }
-    
+
     public function daysUntilExpiry($value)
     {
         $operator = substr($value, 0, 1);
@@ -108,7 +108,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->daysUntilExpiry($value);
     }
-    
+
     public function isExpired($value)
     {
         return $this->builder->where('is_expired', $value);
@@ -119,7 +119,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->isExpired($value);
     }
-     
+
     public function committedAtStart($date)
     {
         return $this->builder->where('committed_at', '>=', $date);
@@ -200,7 +200,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->s3WormCommitment($value);
     }
-    
+
     public function s3BucketId($value)
     {
             $s3Bucket = \NextDeveloper\S3\Database\Models\Buckets::where('uuid', $value)->first();
@@ -215,7 +215,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Bucket($value);
     }
-    
+
     public function s3AccountId($value)
     {
             $s3Account = \NextDeveloper\S3\Database\Models\Accounts::where('uuid', $value)->first();
@@ -230,7 +230,7 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -240,6 +240,6 @@ class WormExpiringPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

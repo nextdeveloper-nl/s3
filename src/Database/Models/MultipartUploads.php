@@ -163,11 +163,11 @@ class MultipartUploads extends Model
     {
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\Accounts::class);
     }
-    
+
     public function buckets() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\Buckets::class);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

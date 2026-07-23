@@ -17,19 +17,19 @@ class WormCommitmentsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function mode($value)
     {
         return $this->builder->where('mode', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function status($value)
     {
         return $this->builder->where('status', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function retentionDays($value)
     {
         $operator = substr($value, 0, 1);
@@ -48,7 +48,7 @@ class WormCommitmentsQueryFilter extends AbstractQueryFilter
     {
         return $this->retentionDays($value);
     }
-    
+
     public function quotaBytes($value)
     {
         $operator = substr($value, 0, 1);
@@ -67,7 +67,7 @@ class WormCommitmentsQueryFilter extends AbstractQueryFilter
     {
         return $this->quotaBytes($value);
     }
-    
+
     public function committedAtStart($date)
     {
         return $this->builder->where('committed_at', '>=', $date);
@@ -236,7 +236,7 @@ class WormCommitmentsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Bucket($value);
     }
-    
+
     public function s3AccountId($value)
     {
             $s3Account = \NextDeveloper\S3\Database\Models\Accounts::where('uuid', $value)->first();
@@ -251,7 +251,7 @@ class WormCommitmentsQueryFilter extends AbstractQueryFilter
     {
         return $this->s3Account($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -261,6 +261,6 @@ class WormCommitmentsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }

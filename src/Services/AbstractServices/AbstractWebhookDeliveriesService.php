@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractWebhookDeliveriesService
 {
-    public static function get(WebhookDeliveriesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?WebhookDeliveriesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -196,7 +196,7 @@ class AbstractWebhookDeliveriesService
                 $data['s3_account_id']
             );
         }
-                        
+
         try {
             $model = WebhookDeliveries::create($data);
         } catch(\Exception $e) {
@@ -254,7 +254,7 @@ class AbstractWebhookDeliveriesService
                 $data['s3_account_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

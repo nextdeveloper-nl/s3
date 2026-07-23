@@ -61,7 +61,7 @@ class AbstractAuditLogsTransformer extends AbstractTransformer
                                                             $s3AccessKeyId = \NextDeveloper\S3\Database\Models\AccessKeys::where('id', $model->s3_access_key_id)->first();
                                                             $s3BucketId = \NextDeveloper\S3\Database\Models\Buckets::where('id', $model->s3_bucket_id)->first();
                                                             $s3WormCommitmentId = \NextDeveloper\S3\Database\Models\WormCommitments::where('id', $model->s3_worm_commitment_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->id,

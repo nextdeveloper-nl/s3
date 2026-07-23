@@ -194,7 +194,7 @@ class Buckets extends Model
         // ("servers" -> "servers_id") doesn't match the real column, s3_server_id.
         return $this->belongsTo(\NextDeveloper\S3\Database\Models\Servers::class, 's3_server_id');
     }
-    
+
     public function webhooks() : \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\NextDeveloper\S3\Database\Models\Webhooks::class);
