@@ -191,4 +191,11 @@ class Servers extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+    use \NextDeveloper\Events\Database\Traits\HasAgentCommands;
+
+    public function getAgentType(): string
+    {
+        return 's3';
+    }
 }

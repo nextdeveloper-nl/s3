@@ -2,9 +2,7 @@
 
 namespace NextDeveloper\S3\Services;
 
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
-use NextDeveloper\Events\Services\NatsService;
 use NextDeveloper\S3\Database\Models\Accounts;
 use NextDeveloper\S3\Database\Models\Servers;
 use NextDeveloper\S3\Database\Models\Buckets;
@@ -17,7 +15,9 @@ use NextDeveloper\S3\Helpers\S3KeyHelper;
  * Subject: agent.s3.{uuid}.cmd
  * Protocol: see docs/agent/seaweed-nats-contract.md §C.5
  *
- * All methods publish fire-and-forget; the agent acks via agent.s3.{uuid}.evt result messages.
+ * Dispatch goes through Servers::sendAgentCommand() (NextDeveloper\Events\Database\
+ * Traits\HasAgentCommands), which persists an event_agent_commands row for
+ * audit/tracking in addition to publishing the NATS envelope.
  */
 class S3AgentCommandService
 {
@@ -195,29 +195,13 @@ class S3AgentCommandService
 
     private static function dispatch(string $serverUuid, string $operation, array $params, int $timeoutS = 30): void
     {
-        $commandId = (string) Str::uuid();
-        $subject   = "agent.s3.{$serverUuid}.cmd";
-
-        $envelope = [
-            'v'          => 1,
-            'id'         => $commandId,
-            'type'       => 'command',
-            'agent_type' => 's3',
-            'agent_uuid' => $serverUuid,
-            'timestamp'  => time(),
-            'payload'    => [
-                'operation' => $operation,
-                'params'    => empty($params) ? (object) [] : $params,
-                'timeout_s' => $timeoutS,
-            ],
-        ];
+        $server = Servers::withoutGlobalScopes()->where('uuid', $serverUuid)->firstOrFail();
 
         Log::info('[S3AgentCommandService] Dispatching command', [
-            'subject'    => $subject,
-            'command_id' => $commandId,
-            'operation'  => $operation,
+            'server_uuid' => $serverUuid,
+            'operation'   => $operation,
         ]);
 
-        app(NatsService::class)->publish($subject, $envelope);
+        $server->sendAgentCommand($operation, $params, $timeoutS);
     }
 }
