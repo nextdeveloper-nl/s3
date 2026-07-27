@@ -47,19 +47,29 @@ class ServersService extends AbstractServersService
      * servers that predate packaging or were seeded outside create() (see
      * EnsureServerPackagingJob) — and safe to re-run any time a new
      * default tier is added to config, to roll it out to existing servers.
+     *
+     * $marketplaceMarketId is only consulted the first time a server gets
+     * its Marketplace Product (i.e. once $server->marketplace_product_id
+     * is already set, it's ignored). Callers that trigger this directly on
+     * a customer/admin's behalf (see Actions\Servers\EnsurePackaging)
+     * should always pass it explicitly rather than rely on the fallback —
+     * config('s3.packaging.marketplace_market_id') exists only as a
+     * default for unattended callers (create(), the CLI backfill) that
+     * have no per-call source for it.
      */
-    public static function ensurePackaging(\NextDeveloper\S3\Database\Models\Servers $server): \NextDeveloper\S3\Database\Models\Servers
+    public static function ensurePackaging(\NextDeveloper\S3\Database\Models\Servers $server, ?string $marketplaceMarketId = null): \NextDeveloper\S3\Database\Models\Servers
     {
         if (!$server->marketplace_product_id) {
             $marketId = \NextDeveloper\Commons\Helpers\DatabaseHelper::uuidToId(
                 '\NextDeveloper\Marketplace\Database\Models\Markets',
-                config('s3.packaging.marketplace_market_id')
+                $marketplaceMarketId ?? config('s3.packaging.marketplace_market_id')
             );
 
             if (!$marketId) {
                 throw new \NextDeveloper\Commons\Exceptions\NotAllowedException(
-                    'S3_PACKAGING_MARKETPLACE_MARKET_ID is not configured (or does not match a real marketplace_markets row) — ' .
-                    'cannot provision this server\'s Marketplace product without a sales channel to attach it to.'
+                    'No marketplace_market_id was given, and S3_PACKAGING_MARKETPLACE_MARKET_ID is not configured ' .
+                    '(or neither matches a real marketplace_markets row) — cannot provision this server\'s ' .
+                    'Marketplace product without a sales channel to attach it to.'
                 );
             }
 
