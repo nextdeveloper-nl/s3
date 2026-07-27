@@ -4,9 +4,7 @@ namespace NextDeveloper\S3\Services;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use NextDeveloper\Commons\Services\CommentsService;
-use NextDeveloper\Events\Services\NatsService;
 use NextDeveloper\S3\Database\Models\BackupAgents;
 use NextDeveloper\S3\Database\Models\BackupJobRuns;
 use NextDeveloper\S3\Database\Models\BackupJobs;
@@ -18,13 +16,13 @@ use NextDeveloper\S3\Database\Models\RestoreJobs;
  * Subject: agent.backup.{uuid}.cmd — envelope/operations documented in
  * docs/backup.agent/protocol.md.
  *
- * Deliberately fire-and-forget, like S3AgentCommandService — NOT the generic
- * NextDeveloper\Events\Services\AgentCommandsService::dispatch(), which
- * requires UserHelper::currentAccount()/me() (an authenticated HTTP request).
- * Several call sites here run from queued jobs with no request context at all
- * (e.g. BackupJobsService::syncAgent() after a job change, or a future
- * heartbeat-triggered full_sync), so this mirrors the same tradeoff the S3
- * agent already made for the same reason.
+ * Dispatch goes through BackupAgents::sendAgentCommand() (NextDeveloper\Events\
+ * Database\Traits\HasAgentCommands), which persists an event_agent_commands row
+ * for audit/tracking in addition to publishing the NATS envelope - this now
+ * works from queued-job/console contexts with no authenticated request (e.g.
+ * BackupJobsService::syncAgent() after a job change), since
+ * AgentCommandsService::dispatch() self-elevates via UserHelper::runAsAdmin()
+ * when there's no current user.
  */
 class BackupAgentCommandService
 {
@@ -192,29 +190,13 @@ class BackupAgentCommandService
 
     private static function dispatch(string $agentUuid, string $operation, array $params, int $timeoutS = 300): void
     {
-        $commandId = (string) Str::uuid();
-        $subject   = "agent.backup.{$agentUuid}.cmd";
-
-        $envelope = [
-            'v'          => 1,
-            'id'         => $commandId,
-            'type'       => 'command',
-            'agent_type' => 'backup',
-            'agent_uuid' => $agentUuid,
-            'timestamp'  => time(),
-            'payload'    => [
-                'operation' => $operation,
-                'params'    => empty($params) ? (object) [] : $params,
-                'timeout_s' => $timeoutS,
-            ],
-        ];
+        $agent = BackupAgents::withoutGlobalScopes()->where('uuid', $agentUuid)->firstOrFail();
 
         Log::info('[BackupAgentCommandService] Dispatching command', [
-            'subject'    => $subject,
-            'command_id' => $commandId,
+            'agent_uuid' => $agentUuid,
             'operation'  => $operation,
         ]);
 
-        app(NatsService::class)->publish($subject, $envelope);
+        $agent->sendAgentCommand($operation, $params, $timeoutS);
     }
 }
