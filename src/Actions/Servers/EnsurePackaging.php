@@ -23,19 +23,25 @@ class EnsurePackaging extends AbstractAction
         'ensured-packaging:NextDeveloper\S3\Servers',
     ];
 
+    public const PARAMS = [
+        'marketplace_market_id' => 'nullable|uuid',
+    ];
+
     public function __construct(Servers $server, $params = null)
     {
         $this->model = $server;
         $this->queue = 's3';
 
-        parent::__construct();
+        parent::__construct($params);
     }
 
     public function handle(): void
     {
         $this->setProgress(0, 'Ensuring server packaging (Marketplace product + catalogs)');
 
-        ServersService::ensurePackaging($this->model);
+        // Pass marketplace_market_id through explicitly instead of relying on
+        // config('s3.packaging.marketplace_market_id') - see ServersService::ensurePackaging()
+        ServersService::ensurePackaging($this->model, $this->params['marketplace_market_id'] ?? null);
 
         $this->setProgress(100, 'Server packaging ensured');
     }
