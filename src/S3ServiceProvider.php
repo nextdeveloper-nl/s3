@@ -82,6 +82,7 @@ class S3ServiceProvider extends AbstractServiceProvider
                 \NextDeveloper\S3\Console\Commands\WormLifecycleCommand::class,
                 \NextDeveloper\S3\Console\Commands\CheckMissedBackupsCommand::class,
                 \NextDeveloper\S3\Console\Commands\EnsureServerPackagingCommand::class,
+                \NextDeveloper\S3\Console\Commands\EnsureAccountPaygSubscriptionCommand::class,
             ]);
         }
     }
