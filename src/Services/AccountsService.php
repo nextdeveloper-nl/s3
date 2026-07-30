@@ -334,6 +334,68 @@ class AccountsService extends AbstractAccountsService
     }
 
     /**
+     * Idempotently ensures the account has at least an active subscription
+     * (any role/tier) on the given server — auto-subscribing to the
+     * server's Pay-As-You-Go catalog entry (sku 's3-payg-{server_uuid}',
+     * provisioned by ServersService::ensurePackaging()) if none exists yet.
+     * No-op if the account already holds an active 'fee' subscription on
+     * this server, whether PAYG or a paid tier — never touches an existing
+     * plan.
+     *
+     * Soft/logging variant of ensurePaygSubscriptionOrFail() — swallows the
+     * "server isn't sellable" case instead of throwing, since this is used
+     * by EnsureAccountPaygSubscriptionJob's backfill, where one unsellable
+     * server must not abort the whole run. BucketsService::create() uses
+     * the throwing variant instead, to hard-block bucket creation.
+     */
+    public static function ensurePaygSubscription(\NextDeveloper\S3\Database\Models\Accounts $account, Servers $server): void
+    {
+        try {
+            self::ensurePaygSubscriptionOrFail($account, $server);
+        } catch (\NextDeveloper\Commons\Exceptions\NotAllowedException $e) {
+            \Illuminate\Support\Facades\Log::warning('[AccountsService] Could not auto-subscribe account to PAYG', [
+                'account_uuid' => $account->uuid,
+                'server_uuid'  => $server->uuid,
+                'reason'       => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Same as ensurePaygSubscription() but throws NotAllowedException
+     * instead of silently skipping when there is no way to establish a
+     * billing anchor — used by BucketsService::create() to hard-block
+     * bucket creation on a server with no product attached, or no
+     * Pay-As-You-Go catalog entry, rather than letting usage accrue
+     * unbilled.
+     */
+    public static function ensurePaygSubscriptionOrFail(\NextDeveloper\S3\Database\Models\Accounts $account, Servers $server): void
+    {
+        if (self::getActivePackageForServer($account->iam_account_id, $server)) {
+            return;
+        }
+
+        if (!$server->marketplace_product_id) {
+            throw new \NextDeveloper\Commons\Exceptions\NotAllowedException(
+                'This server has no Marketplace product attached — buckets cannot be created on it until it is packaged for sale.'
+            );
+        }
+
+        $paygCatalog = \NextDeveloper\Marketplace\Database\Models\ProductCatalogs::withoutGlobalScopes()
+            ->where('marketplace_product_id', $server->marketplace_product_id)
+            ->where('sku', 's3-payg-' . $server->uuid)
+            ->first();
+
+        if (!$paygCatalog) {
+            throw new \NextDeveloper\Commons\Exceptions\NotAllowedException(
+                'This server has no Pay-As-You-Go package configured — buckets cannot be created on it until one exists.'
+            );
+        }
+
+        self::subscribeToServerPackage($account->uuid, $server->uuid, $paygCatalog->uuid);
+    }
+
+    /**
      * Dispatch customer_block or customer_unblock to every connected agent
      * server that hosts at least one active bucket for this account.
      */

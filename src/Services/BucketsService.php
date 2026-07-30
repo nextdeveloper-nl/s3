@@ -87,6 +87,23 @@ class BucketsService extends AbstractBucketsService
                     );
                 }
             }
+
+            // Hard billing gate: refuse to create the bucket at all unless the
+            // account ends up with an active subscription on this server —
+            // auto-subscribing to Pay-As-You-Go if it has none yet. Throws if
+            // the server has no Marketplace product, or no PAYG catalog entry,
+            // so usage can never start accruing with no billing anchor (see
+            // AccountsService::ensurePaygSubscriptionOrFail()).
+            if ($account && !empty($data['s3_server_id'])) {
+                $serverRef = $data['s3_server_id'];
+                $server = is_numeric($serverRef)
+                    ? Servers::withoutGlobalScopes()->find((int) $serverRef)
+                    : Servers::withoutGlobalScopes()->where('uuid', $serverRef)->first();
+
+                if ($server) {
+                    AccountsService::ensurePaygSubscriptionOrFail($account, $server);
+                }
+            }
         }
 
         $data['status']         = $data['status']         ?? 'active';
