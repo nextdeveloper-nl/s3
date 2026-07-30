@@ -2,7 +2,10 @@
 
 namespace NextDeveloper\S3\Services;
 
+use NextDeveloper\Commons\Exceptions\ModelNotFoundException;
+use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\S3\Database\Models\Accounts;
+use NextDeveloper\S3\Database\Models\UsageSnapshots;
 use NextDeveloper\S3\Helpers\QuotaHelper;
 use NextDeveloper\S3\Services\AbstractServices\AbstractUsageSnapshotsService;
 
@@ -65,5 +68,54 @@ class UsageSnapshotsService extends AbstractUsageSnapshotsService
                 NotificationsSentsService::markSent($account->id, 'quota_warning');
             }
         }
+    }
+
+    /**
+     * Daily-bucketed usage series for a single account, meant to feed a
+     * usage-over-time graph. UsageSnapshots is written every 15 minutes
+     * (CheckQuotasJob) and never pruned, so a raw range query would hand a
+     * chart ~2,880 points for a 30-day window — this groups by calendar day
+     * (Postgres date_trunc) and averages storage_bytes/object_count instead.
+     *
+     * $accountRef defaults to the caller's own S3 account (mirrors
+     * BucketsService::create()'s auto-resolve) when omitted. When given
+     * explicitly, both the Accounts and UsageSnapshots lookups go through
+     * their default AuthorizationScope (no withoutGlobalScopes()), so a
+     * non-privileged caller can't pull another account's series by passing
+     * an arbitrary id/uuid — it just resolves to nothing.
+     *
+     * $from/$to are optional inclusive bounds on snapshot_at (any
+     * Carbon-parseable string).
+     */
+    public static function getDailySeriesForAccount($accountRef = null, ?string $from = null, ?string $to = null): \Illuminate\Support\Collection
+    {
+        if ($accountRef) {
+            $account = is_numeric($accountRef)
+                ? Accounts::find((int) $accountRef)
+                : Accounts::where('uuid', $accountRef)->first();
+        } else {
+            $iamAccount = UserHelper::currentAccount();
+            $account = Accounts::where('iam_account_id', $iamAccount->id)->first();
+        }
+
+        if (!$account) {
+            throw new ModelNotFoundException('S3 account not found.');
+        }
+
+        $query = UsageSnapshots::query()
+            ->selectRaw("date_trunc('day', snapshot_at) as day, avg(storage_bytes) as storage_bytes, avg(object_count) as object_count")
+            ->where('s3_account_id', $account->id)
+            ->groupBy('day')
+            ->orderBy('day');
+
+        if ($from) {
+            $query->where('snapshot_at', '>=', $from);
+        }
+
+        if ($to) {
+            $query->where('snapshot_at', '<=', $to);
+        }
+
+        return $query->get();
     }
 }

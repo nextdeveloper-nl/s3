@@ -599,4 +599,12 @@ Route::prefix('bandwidth-monthlies')->group(
     }
 );
 
+Route::prefix('usage-snapshots')->group(
+    function () {
+        // POST (not GET) so it doesn't collide with the {subObjects} wildcard route
+        // registered above, which would otherwise intercept it and return a false 404.
+        Route::post('/series', 'UsageSnapshots\UsageSnapshotsController@series');
+    }
+);
+
 });

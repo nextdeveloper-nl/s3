@@ -154,4 +154,34 @@ class UsageSnapshotsController extends AbstractController
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
+    /**
+     * Daily-bucketed storage_bytes/object_count series for a single account,
+     * for graphing usage over time. See
+     * UsageSnapshotsService::getDailySeriesForAccount().
+     *
+     * optional http params:
+     * - s3_account_id: defaults to the caller's own S3 account if omitted
+     * - from / to: inclusive snapshot_at bounds (any Carbon-parseable string)
+     *
+     * @param  Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function series(Request $request)
+    {
+        $series = UsageSnapshotsService::getDailySeriesForAccount(
+            $request->get('s3_account_id'),
+            $request->get('from'),
+            $request->get('to')
+        );
+
+        return $this->withArray([
+            'data' => $series->map(function ($row) {
+                return [
+                    'day'           => $row->day,
+                    'storage_bytes' => (float) $row->storage_bytes,
+                    'object_count'  => (float) $row->object_count,
+                ];
+            })->values(),
+        ]);
+    }
 }

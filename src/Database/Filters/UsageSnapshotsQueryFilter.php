@@ -22,7 +22,7 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
     {
         $operator = substr($value, 0, 1);
 
-        if ($operator != '<' || $operator != '>') {
+        if ($operator != '<' && $operator != '>') {
             $operator = '=';
         } else {
             $value = substr($value, 1);
@@ -41,7 +41,7 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
     {
         $operator = substr($value, 0, 1);
 
-        if ($operator != '<' || $operator != '>') {
+        if ($operator != '<' && $operator != '>') {
             $operator = '=';
         } else {
             $value = substr($value, 1);
@@ -87,12 +87,12 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
         }
     }
 
-        //  This is an alias function of s3Account
+        //  This is an alias function of s3AccountId
     public function s3_account_id($value)
     {
-        return $this->s3Account($value);
+        return $this->s3AccountId($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -102,6 +102,12 @@ class UsageSnapshotsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+    //  This is an alias function of iamAccountId
+    public function iam_account_id($value)
+    {
+        return $this->iamAccountId($value);
+    }
+
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }
