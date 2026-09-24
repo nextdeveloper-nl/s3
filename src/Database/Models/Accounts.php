@@ -41,7 +41,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  */
 class Accounts extends Model
 {
-    use Filterable, UuidId, CleanCache, Taggable, HasStates, RunAsAdministrator, HasObject;
+    use Filterable, UuidId, CleanCache, Taggable, HasStates, RunAsAdministrator, HasObject, Notifiable;
     use SoftDeletes;
 
     public $timestamps = true;
@@ -217,4 +217,21 @@ class Accounts extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+    /**
+     * s3_accounts has no email column — Notifiable's mail channel needs this
+     * override to resolve the account owner's email via iam_account_id.
+     * Mirrors FlowAutomationEmailPusher::resolveRecipient()'s
+     * crm_account -> iam_account -> owner pattern.
+     */
+    public function routeNotificationForMail($notification = null): ?string
+    {
+        if (!$this->iam_account_id) {
+            return null;
+        }
+
+        $owner = \NextDeveloper\IAM\Helpers\UserHelper::getAccountOwner($this->iam_account_id);
+
+        return $owner->email ?? null;
+    }
 }
