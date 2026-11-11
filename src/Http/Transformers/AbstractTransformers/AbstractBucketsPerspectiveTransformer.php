@@ -90,8 +90,45 @@ class AbstractBucketsPerspectiveTransformer extends AbstractTransformer
             'worm_locks_until'  =>  $model->worm_locks_until,
             'active_webhook_count'  =>  $model->active_webhook_count,
             'in_progress_uploads'  =>  $model->in_progress_uploads,
+            'my_active_package'  =>  $this->getMyActivePackage($s3ServerId),
             ]
         );
+    }
+
+    /**
+     * Active package per "account:server" for the lifetime of this transformer (see getMyActivePackage()).
+     *
+     * @var array<string, ?array>
+     */
+    private array $activePackageCache = [];
+
+    /**
+     * The current user's active subscription for this bucket's server
+     * package, if any — mirrors AbstractBucketsTransformer::getMyActivePackage()
+     * and AbstractServersTransformer, since the buckets-perspective endpoint
+     * is what the bucket list/grid view actually queries.
+     */
+    private function getMyActivePackage(?\NextDeveloper\S3\Database\Models\Servers $server): ?array
+    {
+        if (!$server) {
+            return null;
+        }
+
+        $account = \NextDeveloper\IAM\Helpers\UserHelper::currentAccount();
+
+        if (!$account) {
+            return null;
+        }
+
+        // Memoized per (account, server) on this transformer instance: a bucket list usually spans only a few
+        // servers, so the subscription lookup runs once per server instead of once per bucket row.
+        $key = $account->id . ':' . $server->id;
+
+        if (!array_key_exists($key, $this->activePackageCache)) {
+            $this->activePackageCache[$key] = \NextDeveloper\S3\Services\AccountsService::getActivePackageForServer($account->id, $server);
+        }
+
+        return $this->activePackageCache[$key];
     }
 
     public function includeStates(BucketsPerspective $model)
