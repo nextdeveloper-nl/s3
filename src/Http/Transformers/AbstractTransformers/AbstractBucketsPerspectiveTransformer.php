@@ -96,6 +96,13 @@ class AbstractBucketsPerspectiveTransformer extends AbstractTransformer
     }
 
     /**
+     * Active package per "account:server" for the lifetime of this transformer (see getMyActivePackage()).
+     *
+     * @var array<string, ?array>
+     */
+    private array $activePackageCache = [];
+
+    /**
      * The current user's active subscription for this bucket's server
      * package, if any — mirrors AbstractBucketsTransformer::getMyActivePackage()
      * and AbstractServersTransformer, since the buckets-perspective endpoint
@@ -113,7 +120,15 @@ class AbstractBucketsPerspectiveTransformer extends AbstractTransformer
             return null;
         }
 
-        return \NextDeveloper\S3\Services\AccountsService::getActivePackageForServer($account->id, $server);
+        // Memoized per (account, server) on this transformer instance: a bucket list usually spans only a few
+        // servers, so the subscription lookup runs once per server instead of once per bucket row.
+        $key = $account->id . ':' . $server->id;
+
+        if (!array_key_exists($key, $this->activePackageCache)) {
+            $this->activePackageCache[$key] = \NextDeveloper\S3\Services\AccountsService::getActivePackageForServer($account->id, $server);
+        }
+
+        return $this->activePackageCache[$key];
     }
 
     public function includeStates(BucketsPerspective $model)

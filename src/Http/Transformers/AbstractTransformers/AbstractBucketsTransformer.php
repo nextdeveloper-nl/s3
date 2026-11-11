@@ -88,6 +88,13 @@ class AbstractBucketsTransformer extends AbstractTransformer
     }
 
     /**
+     * Active package per "account:server" for the lifetime of this transformer (see getMyActivePackage()).
+     *
+     * @var array<string, ?array>
+     */
+    private array $activePackageCache = [];
+
+    /**
      * The current user's active subscription for this bucket's server
      * package, if any. A bucket doesn't hold its own package — the
      * subscription lives on the (account, server) pair — so this delegates
@@ -106,7 +113,15 @@ class AbstractBucketsTransformer extends AbstractTransformer
             return null;
         }
 
-        return \NextDeveloper\S3\Services\AccountsService::getActivePackageForServer($account->id, $server);
+        // Memoized per (account, server) on this transformer instance: a bucket list usually spans only a few
+        // servers, so the subscription lookup runs once per server instead of once per bucket row.
+        $key = $account->id . ':' . $server->id;
+
+        if (!array_key_exists($key, $this->activePackageCache)) {
+            $this->activePackageCache[$key] = \NextDeveloper\S3\Services\AccountsService::getActivePackageForServer($account->id, $server);
+        }
+
+        return $this->activePackageCache[$key];
     }
 
     public function includeStates(Buckets $model)
