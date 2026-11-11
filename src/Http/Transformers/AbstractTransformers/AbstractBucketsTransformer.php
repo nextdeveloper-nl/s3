@@ -79,11 +79,34 @@ class AbstractBucketsTransformer extends AbstractTransformer
             'replica_health'  =>  $model->replica_health,
             'status'  =>  $model->status,
             'tags'  =>  $model->tags,
+            'my_active_package'  =>  $this->getMyActivePackage($model, $s3ServerId),
             'created_at'  =>  $model->created_at,
             'updated_at'  =>  $model->updated_at,
             'deleted_at'  =>  $model->deleted_at,
             ]
         );
+    }
+
+    /**
+     * The current user's active subscription for this bucket's server
+     * package, if any. A bucket doesn't hold its own package — the
+     * subscription lives on the (account, server) pair — so this delegates
+     * to the same AccountsService::getActivePackageForServer() the Servers
+     * transformer already uses, resolved via this bucket's server.
+     */
+    private function getMyActivePackage(Buckets $model, ?\NextDeveloper\S3\Database\Models\Servers $server): ?array
+    {
+        if (!$server) {
+            return null;
+        }
+
+        $account = \NextDeveloper\IAM\Helpers\UserHelper::currentAccount();
+
+        if (!$account) {
+            return null;
+        }
+
+        return \NextDeveloper\S3\Services\AccountsService::getActivePackageForServer($account->id, $server);
     }
 
     public function includeStates(Buckets $model)
