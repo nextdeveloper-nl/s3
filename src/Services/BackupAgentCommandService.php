@@ -5,6 +5,7 @@ namespace NextDeveloper\S3\Services;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use NextDeveloper\Commons\Services\CommentsService;
+use NextDeveloper\Events\Exceptions\AgentTimeoutException;
 use NextDeveloper\S3\Database\Models\BackupAgents;
 use NextDeveloper\S3\Database\Models\BackupJobRuns;
 use NextDeveloper\S3\Database\Models\BackupJobs;
@@ -176,6 +177,81 @@ class BackupAgentCommandService
         ], timeoutS: 3600); // longer than verify_snapshot's 1800s — real restore + checksum
 
         return $restore;
+    }
+
+    /**
+     * Ask the agent which databases it can back up for one engine — the data
+     * behind the database picker of a job_type=database job. Unlike every
+     * other command here this one is synchronous (request/reply over a NATS
+     * inbox): the panel is waiting on the answer, and nothing is persisted.
+     *
+     * Always returns the same shape instead of throwing, because every
+     * failure here is something the customer has to fix on their own machine
+     * (agent offline, wrong password in the agent's config, client tools not
+     * installed) and the agent's own message is the most useful thing we can
+     * show them:
+     *
+     *   ['ok' => bool, 'engine' => string, 'databases' => string[], 'code' => ?string, 'message' => ?string]
+     */
+    public static function listDatabases(BackupAgents $agent, string $engine, ?string $connection = null): array
+    {
+        $base = ['ok' => false, 'engine' => $engine, 'databases' => [], 'code' => null, 'message' => null];
+
+        if ($agent->status !== 'active') {
+            return array_merge($base, [
+                'code'    => 'AGENT_NOT_ACTIVE',
+                'message' => 'This agent is not active, so its databases cannot be listed.',
+            ]);
+        }
+
+        $params = ['engine' => $engine];
+        if (!empty($connection)) {
+            $params['connection'] = $connection;
+        }
+
+        try {
+            $reply = $agent->sendAgentCommandSync('list_databases', $params, 30);
+        } catch (AgentTimeoutException $e) {
+            Log::warning('[BackupAgentCommandService] list_databases got no reply', [
+                'agent_uuid' => $agent->uuid,
+                'engine'     => $engine,
+            ]);
+
+            return array_merge($base, [
+                'code'    => 'AGENT_TIMEOUT',
+                'message' => 'The agent did not answer. Check that it is running and connected, then try again.',
+            ]);
+        }
+
+        // The agent replies with a full result envelope; tolerate a bare payload too.
+        // The reply is written on the customer's machine, so its shape is not
+        // trusted: anything that is not the expected type is treated as absent.
+        $result = is_array($reply['payload'] ?? null) ? $reply['payload'] : $reply;
+        $status = $result['status'] ?? null;
+
+        if ($status !== 'completed') {
+            $message = is_string($result['message'] ?? null) && $result['message'] !== ''
+                ? $result['message']
+                : 'The agent could not list its databases.';
+
+            // An agent older than database-job support rejects the operation by name.
+            $unsupported = $status === 'rejected' && str_contains($message, 'unknown operation');
+
+            return array_merge($base, [
+                'code'    => $unsupported ? 'AGENT_UNSUPPORTED' : 'LIST_FAILED',
+                'message' => $unsupported
+                    ? 'This agent version does not support database backups. Update the agent and try again.'
+                    : $message,
+            ]);
+        }
+
+        $output    = is_array($result['output'] ?? null) ? $result['output'] : [];
+        $databases = array_values(array_filter(
+            is_array($output['databases'] ?? null) ? $output['databases'] : [],
+            fn ($name) => is_string($name) && $name !== ''
+        ));
+
+        return array_merge($base, ['ok' => true, 'databases' => $databases]);
     }
 
     /**

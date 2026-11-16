@@ -40,6 +40,7 @@ Published by `NextDeveloper\S3\Services\BackupAgentCommandService`. Envelope
 | `resume_job` | `{job_uuid}` | |
 | `cancel_job` | `{job_uuid}` | Cancel a currently-running job. |
 | `verify_snapshot` | `{job_uuid, snapshot_id}` | Restore the given Kopia snapshot to a temp location and checksum-verify it. Long `timeout_s` (1800s) — a restore+checksum pass takes a while. |
+| `list_databases` | `{engine, connection?}` | Synchronous (reply inbox, 30s). Lists the databases the agent can back up for `engine` (`postgres`, `mysql`, `mssql`); `result.output` is `{engine, databases: [...]}`. Sent by `BackupAgentCommandService::listDatabases()` for the job form's database picker. See `updates/2026-11-16-database-jobs.md`. |
 | `restore_snapshot` | `{job_uuid, snapshot_id, destination_path, restore_paths, restore_uuid}` | Customer-facing restore: restore backup data to a real `destination_path`, then mandatorily checksum-verify it before reporting success. Works for both engines — see below. Long `timeout_s` (3600s) — writes the full dataset back to disk in addition to checksumming it. |
 | `revoke` | `{reason}` | Shut down cleanly. Sent before `agent_api_key` is cleared — the agent has a brief window to react before it's rejected on reconnect. |
 
@@ -71,7 +72,7 @@ Each item in `payload.jobs` (see `BackupJobsService::buildFullSyncPayload()`):
 {
   "uuid": "...",
   "name": "nightly-mysql-dump",
-  "job_type": "files|script",
+  "job_type": "files|script|database",
   "engine": "rsync|kopia",
   "source_paths": ["/var/backups/mysql"],
   "pre_script": "#!/bin/bash\nmysqldump ... > /var/backups/mysql/dump.sql\n",
@@ -81,7 +82,8 @@ Each item in `payload.jobs` (see `BackupJobsService::buildFullSyncPayload()`):
   "keep_for_days": null,
   "bandwidth_limit_mbps": 50,
   "bucket_name": "backup-agent-a1b2c3d4",
-  "object_lock_enabled": false
+  "object_lock_enabled": false,
+  "database": { "engine": "postgres|mysql|mssql", "connection": "default", "databases": ["crm"], "all": false }
 }
 ```
 
@@ -106,6 +108,10 @@ Each item in `payload.jobs` (see `BackupJobsService::buildFullSyncPayload()`):
   always means "current bucket state" (see `restore_snapshot` above).
   `engine: "kopia"` — the dedup/content-addressable engine described throughout
   the rest of this doc, where each run produces a distinct restorable snapshot.
+- `job_type: "database"` — the agent dumps the databases in `database` itself, then
+  snapshots the dumps; `source_paths`/`pre_script` are ignored. `database` is `null`
+  for other job types. It never carries credentials — `connection` names settings
+  stored on the agent. See `updates/2026-11-16-database-jobs.md`.
 - `schedule` is a standard cron expression, evaluated **by the agent**, not the
   platform (see `overview.md`).
 

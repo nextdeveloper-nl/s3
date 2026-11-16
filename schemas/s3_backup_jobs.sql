@@ -20,7 +20,16 @@ CREATE TABLE s3_backup_jobs (
     s3_bucket_id         bigint       NOT NULL REFERENCES s3_buckets(id),
 
     name                 text         NOT NULL,
-    job_type             text         NOT NULL, -- files | script
+    job_type             text         NOT NULL, -- files | script | database
+
+    -- job_type='database' only: the agent dumps these databases itself
+    -- (pg_dump / mysqldump / SQL Server BACKUP DATABASE) and backs up the dump
+    -- files. No credentials here, ever: database_connection only names a
+    -- connection in the agent's own local config file.
+    database_engine      text,        -- postgres | mysql | mssql
+    database_connection  text,        -- NULL = the agent's "default" connection
+    database_names       text[],      -- selected databases; ignored when database_all
+    database_all         boolean      NOT NULL DEFAULT false, -- every user database present at run time
 
     -- rsync (default) mirrors source_paths directly into the bucket as a
     -- plain, browsable 1:1 copy — no point-in-time snapshot concept, a
@@ -74,3 +83,21 @@ CREATE        INDEX ON s3_backup_jobs (is_enabled) WHERE is_enabled = true;
 --
 -- ALTER TABLE s3_backup_jobs ADD COLUMN engine text NOT NULL DEFAULT 'rsync';
 -- values: rsync | kopia
+--
+-- Third change, adding database jobs (job_type='database', see
+-- docs/backup.agent/updates/2026-11-16-database-jobs.md):
+--
+-- ALTER TABLE s3_backup_jobs ADD COLUMN database_engine     text;
+-- ALTER TABLE s3_backup_jobs ADD COLUMN database_connection text;
+-- ALTER TABLE s3_backup_jobs ADD COLUMN database_names      text[];
+-- ALTER TABLE s3_backup_jobs ADD COLUMN database_all        boolean NOT NULL DEFAULT false;
+--
+-- The deployed table also carries a CHECK on job_type that this file never
+-- declared; it has to be widened or every database job insert is refused:
+--
+-- ALTER TABLE s3_backup_jobs DROP CONSTRAINT s3_backup_jobs_job_type_check;
+-- ALTER TABLE s3_backup_jobs ADD  CONSTRAINT s3_backup_jobs_job_type_check
+--     CHECK (job_type IN ('files', 'script', 'database'));
+--
+-- (Deployed source_paths is NOT NULL DEFAULT '{}', unlike the nullable column
+-- above — BackupJobsService stores [] for database jobs, never null.)

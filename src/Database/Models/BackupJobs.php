@@ -32,6 +32,10 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property string $name
  * @property string $job_type
  * @property string $engine
+ * @property string $database_engine
+ * @property string $database_connection
+ * @property array $database_names
+ * @property boolean $database_all
  * @property array $source_paths
  * @property string $pre_script
  * @property integer $script_timeout_s
@@ -69,6 +73,10 @@ class BackupJobs extends Model
             'name',
             'job_type',
             'engine',
+            'database_engine',
+            'database_connection',
+            'database_names',
+            'database_all',
             'source_paths',
             'pre_script',
             'script_timeout_s',
@@ -108,6 +116,10 @@ class BackupJobs extends Model
     'name' => 'string',
     'job_type' => 'string',
     'engine' => 'string',
+    'database_engine' => 'string',
+    'database_connection' => 'string',
+    'database_names' => \NextDeveloper\Commons\Database\Casts\TextArray::class,
+    'database_all' => 'boolean',
     'source_paths' => \NextDeveloper\Commons\Database\Casts\TextArray::class,
     'pre_script' => 'string',
     'script_timeout_s' => 'integer',

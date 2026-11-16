@@ -21,6 +21,12 @@ class BackupJobsUpdateRequest extends AbstractFormRequest
             'source_paths'         => 'nullable|array',
             'source_paths.*'       => 'string',
             'pre_script'           => 'nullable|string',
+            // database jobs: the selection can change, the engine cannot (stripped in BackupJobsService::update())
+            'database_connection'  => 'nullable|string|max:64',
+            'database_names'       => 'nullable|array',
+            // same character restriction as BackupJobsCreateRequest
+            'database_names.*'     => 'string|max:128|not_regex:/[,{}"\\\\]/',
+            'database_all'         => 'nullable|boolean',
             'script_timeout_s'     => 'nullable|integer|min:1',
             'schedule'             => 'nullable|string',
             'keep_last_n'          => 'nullable|integer|min:1',
