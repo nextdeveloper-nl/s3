@@ -86,14 +86,27 @@ class HandleBackupAgentEventJob extends AbstractAgentEventJob
 
         $agent->update(['health' => 'healthy', 'last_seen_at' => now()]);
 
-        // run_job_now results carry the run_uuid we generated when the command was sent.
-        $runUuid = $output['run_uuid'] ?? null;
+        // run_job_now results carry the run_uuid we generated when the command
+        // was sent. A rejected command has no output at all, so fall back to
+        // the uuid we stored in the command's own params.
+        $commandParams = is_array($command?->params) ? $command->params : [];
+        $runUuid       = ($output['run_uuid'] ?? null) ?: ($commandParams['run_uuid'] ?? null);
 
         if ($runUuid) {
-            if ($status === 'completed') {
+            // Two statuses are in play: $status says whether the agent carried
+            // out the command, $output['status'] says how the backup run itself
+            // ended. A run that failed (dump error, upload refused) still comes
+            // back as a completed command, with the reason in $output['error'].
+            $runFailed = ($output['status'] ?? null) === 'failed';
+
+            if ($status === 'completed' && !$runFailed) {
                 BackupJobRunsService::completeRun($runUuid, $output);
-            } elseif (in_array($status, ['failed', 'rejected'], true)) {
-                BackupJobRunsService::failRun($runUuid, $payload['message'] ?? null);
+            } elseif ($status === 'completed' || in_array($status, ['failed', 'rejected'], true)) {
+                $error = $runFailed && is_string($output['error'] ?? null)
+                    ? $output['error']
+                    : ($payload['message'] ?? null);
+
+                BackupJobRunsService::failRun($runUuid, $error);
             }
         }
 

@@ -4,6 +4,7 @@ namespace NextDeveloper\S3\Services;
 
 use Cron\CronExpression;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use NextDeveloper\S3\Database\Models\BackupJobRuns;
 use NextDeveloper\S3\Database\Models\BackupJobs;
 use NextDeveloper\S3\Services\AbstractServices\AbstractBackupJobRunsService;
@@ -28,12 +29,21 @@ class BackupJobRunsService extends AbstractBackupJobRunsService
      */
     public static function startRun(BackupJobs $job, string $triggeredBy = 'schedule'): BackupJobRuns
     {
-        return BackupJobRuns::create([
+        // The uuid is generated here, not left to the column default: the
+        // caller sends it to the agent as run_uuid straight away, and a model
+        // returned by create() does not carry database-generated defaults.
+        // forceFill because uuid is deliberately not mass-assignable.
+        $run = (new BackupJobRuns())->forceFill([
+            'uuid'             => (string) Str::uuid(),
             's3_backup_job_id' => $job->id,
             'status'           => 'running',
             'started_at'       => now(),
             'triggered_by'     => $triggeredBy,
         ]);
+
+        $run->save();
+
+        return $run;
     }
 
     public static function completeRun(string $uuid, array $output = []): BackupJobRuns
