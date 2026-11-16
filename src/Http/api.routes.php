@@ -560,6 +560,8 @@ Route::prefix('backup-agents')->group(
         // POST (not GET) so it doesn't collide with the {subObjects} wildcard route
         // registered above, same reasoning as access-keys/reveal below.
         Route::post('/{s3_backup_agents}/revoke', 'BackupAgents\BackupAgentsController@revoke');
+        // Live request/reply to the agent — feeds the database picker of the job form.
+        Route::post('/{s3_backup_agents}/list-databases', 'BackupAgents\BackupAgentsController@listDatabases');
     }
 );
 

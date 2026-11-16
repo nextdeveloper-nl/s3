@@ -36,6 +36,7 @@ class BackupJobsService extends AbstractBackupJobsService
     public static function create(array $data)
     {
         static::assertScriptHasPreScript($data);
+        $data = static::normalizeDatabaseSelection($data);
 
         $agentId = DatabaseHelper::uuidToId(
             '\NextDeveloper\S3\Database\Models\BackupAgents',
@@ -65,9 +66,21 @@ class BackupJobsService extends AbstractBackupJobsService
      */
     public static function update($id, array $data)
     {
-        unset($data['s3_backup_agent_id'], $data['s3_bucket_id'], $data['job_type'], $data['engine'], $data['object_lock_enabled']);
+        // database_engine joins the immutable set: a job's existing dumps are in
+        // that engine's format, and the selected names only mean something on it.
+        unset(
+            $data['s3_backup_agent_id'],
+            $data['s3_bucket_id'],
+            $data['job_type'],
+            $data['engine'],
+            $data['object_lock_enabled'],
+            $data['database_engine']
+        );
 
-        static::assertScriptHasPreScript($data, existing: BackupJobs::where('uuid', $id)->first());
+        $existing = BackupJobs::where('uuid', $id)->first();
+
+        static::assertScriptHasPreScript($data, existing: $existing);
+        $data = static::normalizeDatabaseSelection($data, existing: $existing);
 
         $model = parent::update($id, $data);
 
@@ -176,6 +189,9 @@ class BackupJobsService extends AbstractBackupJobsService
                     // Where this job's Kopia snapshots go — the whole point of this fix.
                     'bucket_name'          => $bucket?->bucket_name,
                     'object_lock_enabled'  => (bool) $job->object_lock_enabled,
+                    // job_type=database only, null otherwise — the agent ignores
+                    // source_paths/pre_script for that type and dumps these itself.
+                    'database'             => static::databasePayload($job),
                 ];
             })->values()->all(),
         ];
@@ -194,6 +210,106 @@ class BackupJobsService extends AbstractBackupJobsService
         if ($jobType === 'script' && empty($preScript)) {
             throw new NotAllowedException('A script-type backup job requires a non-empty pre_script.');
         }
+    }
+
+    /**
+     * Database engines the agent can dump. Mirrors the agent's own list
+     * (backup.agent internal/backup/dbdump) — adding one here without the
+     * agent supporting it just produces jobs that fail on every run.
+     */
+    public const DATABASE_ENGINES = ['postgres', 'mysql', 'mssql'];
+
+    /**
+     * The `database` object of a full_sync job entry (see
+     * docs/backup.agent/protocol.md), or null for non-database jobs. Carries
+     * no host/user/password by design: `connection` only names an entry in
+     * the agent's local config, so database credentials never reach the platform.
+     */
+    private static function databasePayload(BackupJobs $job): ?array
+    {
+        if ($job->job_type !== 'database') {
+            return null;
+        }
+
+        $all = (bool) $job->database_all;
+
+        return [
+            'engine'     => $job->database_engine,
+            'connection' => $job->database_connection ?: 'default',
+            'databases'  => $all ? [] : array_values($job->database_names ?? []),
+            'all'        => $all,
+        ];
+    }
+
+    /**
+     * Validate and tidy the database_* fields of a create/update payload.
+     *
+     * A database job with no engine, or with neither "all" nor at least one
+     * database, can never produce a backup — reject it at write time, same
+     * reasoning as assertScriptHasPreScript(). For files/script jobs the
+     * database_* fields are meaningless, so they're dropped rather than stored.
+     *
+     * On update, only the keys the caller actually sent are returned — the
+     * existing row fills the gaps for validation only.
+     */
+    private static function normalizeDatabaseSelection(array $data, ?BackupJobs $existing = null): array
+    {
+        $jobType = $data['job_type'] ?? $existing?->job_type;
+
+        if ($jobType !== 'database') {
+            unset($data['database_engine'], $data['database_connection'], $data['database_names'], $data['database_all']);
+
+            return $data;
+        }
+
+        $engine = $data['database_engine'] ?? $existing?->database_engine;
+
+        if (!in_array($engine, self::DATABASE_ENGINES, true)) {
+            throw new NotAllowedException(
+                'A database-type backup job requires database_engine to be one of: '
+                    . implode(', ', self::DATABASE_ENGINES) . '.'
+            );
+        }
+
+        if (array_key_exists('database_names', $data)) {
+            // Trim, drop blanks and duplicates, reindex — the agent treats the
+            // list as exact names, so " crm" would be reported as "not found".
+            $data['database_names'] = array_values(array_unique(array_filter(
+                array_map(fn ($name) => trim((string) $name), $data['database_names'] ?? []),
+                fn ($name) => $name !== ''
+            )));
+        }
+
+        // The request rule is nullable, the column is NOT NULL: an explicit null means "off".
+        if (array_key_exists('database_all', $data)) {
+            $data['database_all'] = (bool) $data['database_all'];
+        }
+
+        $all   = array_key_exists('database_all', $data) ? $data['database_all'] : (bool) $existing?->database_all;
+        $names = array_key_exists('database_names', $data) ? $data['database_names'] : ($existing?->database_names ?? []);
+
+        if (!$all && empty($names)) {
+            throw new NotAllowedException(
+                'A database-type backup job requires at least one entry in database_names, or database_all=true.'
+            );
+        }
+
+        // A database job has no source paths (the agent owns the dump location),
+        // but the live column is NOT NULL: store an empty list, never null.
+        if ($existing) {
+            unset($data['source_paths']);
+        } else {
+            $data['source_paths'] = [];
+        }
+
+        // The column default (900s) is sized for a pre_script; a real
+        // database dump routinely needs longer. Only on create — an update
+        // that doesn't mention the timeout must not reset it.
+        if (!$existing && empty($data['script_timeout_s'])) {
+            $data['script_timeout_s'] = 3600;
+        }
+
+        return $data;
     }
 
     private static function syncAgent(?int $agentId): void

@@ -20,7 +20,17 @@ class BackupJobsCreateRequest extends AbstractFormRequest
             // bucket when object_lock_enabled=true — see BackupJobsService::resolveBucketForJob()
             's3_bucket_id'         => 'nullable|exists:s3_buckets,uuid|uuid',
             'name'                 => 'required|string',
-            'job_type'             => 'required|string|in:files,script',
+            'job_type'             => 'required|string|in:files,script,database',
+            // job_type=database only (cross-field rules live in BackupJobsService::normalizeDatabaseSelection):
+            // which engine the agent dumps, and which databases. database_connection names a connection
+            // in the agent's own config file — credentials are never sent to or stored on the platform.
+            'database_engine'      => 'nullable|string|in:postgres,mysql,mssql',
+            'database_connection'  => 'nullable|string|max:64',
+            'database_names'       => 'nullable|array',
+            // , { } " \ are refused: the text[] cast (Commons TextArray) cannot read them back intact,
+            // so the agent would be sent a different name than the one that was picked.
+            'database_names.*'     => 'string|max:128|not_regex:/[,{}"\\\\]/',
+            'database_all'         => 'nullable|boolean',
             // rsync (default): plain 1:1 mirror, no snapshot history. kopia: dedup engine,
             // each run is a restorable snapshot. See docs/backup.agent/protocol.md.
             'engine'               => 'nullable|string|in:rsync,kopia',

@@ -10,6 +10,8 @@ use NextDeveloper\S3\Http\Requests\BackupAgents\BackupAgentsUpdateRequest;
 use NextDeveloper\S3\Database\Filters\BackupAgentsQueryFilter;
 use NextDeveloper\S3\Database\Models\BackupAgents;
 use NextDeveloper\S3\Services\BackupAgentsService;
+use NextDeveloper\S3\Services\BackupAgentCommandService;
+use NextDeveloper\S3\Http\Requests\BackupAgents\BackupAgentsListDatabasesRequest;
 use NextDeveloper\S3\Http\Requests\BackupAgents\BackupAgentsCreateRequest;
 use NextDeveloper\Commons\Http\Traits\Tags as TagsTrait;
 use NextDeveloper\Commons\Http\Traits\Addresses as AddressesTrait;
@@ -147,5 +149,32 @@ class BackupAgentsController extends AbstractController
         $model = BackupAgentsService::revoke($ref, request()->input('reason', ''));
 
         return ResponsableFactory::makeResponse($this, $model);
+    }
+
+    /**
+     * POST /s3/backup-agents/{s3_backup_agents}/list-databases
+     *
+     * Asks the agent, live, which databases it can back up for one engine —
+     * feeds the database picker of the backup job form. POST for the same
+     * reason as revoke above (the {subObjects} wildcard would swallow a GET).
+     *
+     * Always answers 200 with {ok, engine, databases, code, message}: a
+     * failure here (agent offline, bad credentials in the agent's own config)
+     * is information for the customer, not an API error — see
+     * BackupAgentCommandService::listDatabases().
+     */
+    public function listDatabases($ref, BackupAgentsListDatabasesRequest $request)
+    {
+        $validated = $request->validated();
+
+        $agent = BackupAgentsService::getByRef($ref);
+
+        if (!$agent) {
+            return $this->setStatusCode(404)->withError('Backup agent not found.', 'ERROR-BACKUP-AGENT-NOT-FOUND');
+        }
+
+        return $this->withArray(
+            BackupAgentCommandService::listDatabases($agent, $validated['engine'], $validated['connection'] ?? null)
+        );
     }
 }
