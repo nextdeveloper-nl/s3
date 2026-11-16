@@ -68,6 +68,8 @@ class AbstractBackupJobsTransformer extends AbstractTransformer
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
             'name'  =>  $model->name,
             'job_type'  =>  $model->job_type,
+            // rsync | kopia: was missing from the payload, so the panel showed a blank engine and could not tell kopia jobs apart.
+            'engine'  =>  $model->engine,
             'database_engine'  =>  $model->database_engine,
             'database_connection'  =>  $model->database_connection,
             'database_names'  =>  $model->database_names,
