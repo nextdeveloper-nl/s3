@@ -39,7 +39,7 @@ class BucketsPerspectiveService extends AbstractBucketsPerspectiveService
      * BucketsService::create()) and apply the where clause directly, so filtering
      * doesn't depend on the caller's own visibility into iam_accounts.
      */
-    public static function get(BucketsPerspectiveQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?BucketsPerspectiveQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $iamAccountId = $params['iamAccountId'] ?? $params['iam_account_id'] ?? null;
 

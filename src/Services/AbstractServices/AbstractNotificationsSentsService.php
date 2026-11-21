@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractNotificationsSentsService
 {
-    public static function get(NotificationsSentsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?NotificationsSentsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 

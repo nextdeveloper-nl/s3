@@ -23,7 +23,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractBackupAgentsService
 {
-    public static function get(BackupAgentsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?BackupAgentsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
