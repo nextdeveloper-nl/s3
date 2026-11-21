@@ -21,7 +21,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractRestoreJobsService
 {
-    public static function get(RestoreJobsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?RestoreJobsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
